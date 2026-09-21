@@ -8,9 +8,9 @@ solo e mata a vegetação. Ao abandonar a cidade, as fontes se apagam: a contami
 decai geração após geração, a vegetação avança sobre o solo limpo e, com o tempo,
 racha o concreto.
 
-> **Status:** etapas 1 e 2 concluídas (engine + Jogo da Vida + testes; renderização e
-> execução passo a passo). As regras do cenário da cidade, o painel completo e a
-> exportação de dados são as etapas 3 e 4 — ver [Cronograma](#cronograma).
+> **Status:** etapas 1 a 3 concluídas (engine, Jogo da Vida, renderização, regras do
+> cenário da cidade e calibração). O painel completo com todos os parâmetros, o pincel
+> por estado e a exportação de dados são a etapa 4 — ver [Cronograma](#cronograma).
 
 ---
 
@@ -33,6 +33,7 @@ npm run preview # serve o build de produção localmente
 | `npm run test:watch` | Vitest em modo observador. |
 | `npm run typecheck` | `tsc --noEmit` em modo estrito. |
 | `npm run build` | Checagem de tipos seguida do empacotamento. |
+| `npm run calibrar` | Roda o cenário sem interface e imprime os indicadores. |
 
 ### Publicação
 
@@ -55,9 +56,9 @@ src/
 │   ├── rng.ts          gerador pseudoaleatório com semente (mulberry32)
 │   ├── vizinhanca.ts   Von Neumann e Moore, raio 1 ou 2 (plugáveis)
 │   ├── contorno.ts     periódico (toroidal) e fixo (fora da grade = solo limpo)
-│   ├── regras.ts       regras de transição (Jogo da Vida; cidade na etapa 3)
+│   ├── regras.ts       regras de transição: cenário cidade e Jogo da Vida
 │   ├── simulacao.ts    grade em Uint8Array, double buffering, estatísticas
-│   ├── mapas.ts        condições iniciais (vazio, planador, sopa aleatória)
+│   ├── mapas.ts        condições iniciais (cidade procedural, planador, sopa…)
 │   └── index.ts        superfície pública da engine
 ├── render/     desenho no canvas
 │   ├── paleta.ts       cores de cada estado (hex para a UI, bytes para o canvas)
@@ -144,27 +145,119 @@ leitor reconhece, e funciona como teste de integração da engine inteira — se
 planador se desloca corretamente, então vizinhança, contorno, atualização síncrona e
 ordem de varredura estão todos corretos.
 
-### Cenário cidade/contaminação — etapa 3
+### Cenário cidade/contaminação
 
-Resumo do que será implementado (os testes correspondentes já estão declarados como
-pendentes em `testes/cenarioCidade.test.ts`):
+A **pressão** de uma célula é a *média ponderada* do nível de contaminação dos
+vizinhos, descontada a absorção da vegetação lenhosa:
 
-Define-se a **pressão** de uma célula como a *média* ponderada do nível de
-contaminação dos vizinhos (solo = 0, contaminado = 1 a 3, fábrica ativa = 3, demais =
-0). Usar a média, e não a soma, é o que faz os mesmos limiares valerem para Von
-Neumann e para Moore, que têm quantidades diferentes de vizinhos. O vento faz o
-vizinho do lado de onde ele vem pesar 2x e o do lado oposto 0,5x; cada arbusto ou
-árvore vizinho reduz a pressão (absorção).
+```
+pressão = Σ(peso_vizinho × nível_vizinho) / Σ(peso_vizinho)  −  absorção × nº de vizinhos arbusto/árvore
+```
 
-1. **Fábrica** permanece fábrica. Com a cidade abandonada, não emite.
-2. **Solo e contaminação (0..3):** pressão ≥ limiar de subida sobe um nível (máx. 3);
-   pressão ≤ limiar de descida desce um nível (mín. 0); senão mantém.
-3. **Solo limpo** sem contaminação na vizinhança vira grama com probabilidade
-   proporcional ao número de vizinhos com vegetação.
-4. **Vegetação (6..8):** com pressão ≥ limiar de morte vira contaminação leve; senão
-   cresce (grama → arbusto → árvore, cada passo com sua probabilidade).
-5. **Concreto** não recebe contaminação; com ao menos K vizinhos arbusto/árvore, vira
-   grama com uma probabilidade de rachadura.
+Os níveis: solo = 0, contaminado = 1 a 3, fábrica ativa = `emissaoFabrica`, concreto e
+vegetação = 0. Dividir pela **soma dos pesos** — e não pela quantidade de vizinhos — é
+o que mantém os mesmos limiares válidos em Von Neumann, em Moore e com qualquer vento:
+o resultado continua sendo uma média na escala 0..3.
+
+O vento faz o vizinho do lado de onde ele vem pesar 2x e o do lado oposto 0,5x:
+
+| Vento | Peso 2× | Peso 0,5× |
+| --- | --- | --- |
+| nenhum | — | — |
+| norte | vizinhos acima (`dy < 0`) | abaixo |
+| sul | abaixo | acima |
+| leste | à direita | à esquerda |
+| oeste | à esquerda | à direita |
+
+#### Tabela de transições
+
+| Estado atual | Condição | Próximo estado |
+| --- | --- | --- |
+| **Fábrica** | sempre | Fábrica |
+| **Solo / contaminado** (0–3) | cidade ativa e pressão ≥ `limiarSubida`, nível < 3 | nível **+1** |
+| | pressão ≤ `limiarDescida` | nível **−1** (mín. 0) |
+| | senão | nível **−1** com prob. `probDecaimento` |
+| **Solo** (0) | continuou em 0, nenhum vizinho contaminado, sorteio com p = `probBrotar` × nº vizinhos com vegetação | Grama |
+| **Vegetação** (6–8) | pressão ≥ `limiarMorte` | Contaminado leve |
+| Grama | senão, prob. `probCrescer1` | Arbusto |
+| Arbusto | senão, prob. `probCrescer2` | Árvore |
+| **Concreto** | ≥ `vizinhosParaRachar` vizinhos arbusto/árvore, prob. `probRachar` | Grama |
+| | senão | Concreto (nunca recebe contaminação) |
+
+#### Duas decisões de modelagem que valem explicação
+
+A regra na forma "sobe se a média dos vizinhos passa de um limiar" **não se recupera
+nunca**, e isso não é questão de calibrar melhor — é geometria. O interior de uma
+mancha sempre enxerga mais contaminação (média 3, todos os vizinhos no máximo) do que
+a frente de avanço (média 1,125, só três vizinhos contaminados). Ou seja, *"um nível é
+alcançável"* e *"um nível se auto-sustenta"* são exatamente a mesma condição: tudo o
+que a mancha conquista, ela também mantém para sempre. Foi verificado com o script de
+calibração, tanto com limiar absoluto quanto com limiar relativo ao próprio nível.
+
+Por isso duas linhas fogem do enunciado original:
+
+1. **A contaminação só avança enquanto a cidade emite.** O solo contaminado é um
+   *reservatório*, não uma fonte: ele empurra contaminação para os lados enquanto há
+   emissão nova chegando, e desligadas as fábricas o que restou apenas se degrada no
+   lugar.
+2. **`probDecaimento`**, a degradação própria da contaminação. É ela que limpa o miolo
+   da mancha, onde a pressão é alta demais para a descida por vizinhança — que só
+   acontece nas bordas, junto ao solo limpo.
+
+Há ainda uma condição de escala que aparece na prática: a regra 3 só faz brotar grama
+ao lado de vegetação já existente, então a faixa verde da borda precisa **sobreviver**
+à fase industrial. Por isso o gerador coloca as fábricas na região central do mapa: em
+uma grade pequena, ou com as fábricas perto da borda, a mancha esteriliza tudo e a
+recuperação fica matematicamente impossível.
+
+#### Parâmetros
+
+Todos ficam em um objeto só (`ParametrosCidade`), compartilhado com a interface: mexer
+em um controle vale já na geração seguinte, sem reconstruir a regra.
+
+| Parâmetro | Padrão | O que faz |
+| --- | --- | --- |
+| `emissaoFabrica` | 3 | nível emitido por uma fábrica ativa |
+| `limiarSubida` | 0,35 | um vizinho grave em Moore dá 3/8 = 0,375: basta para avançar |
+| `limiarDescida` | 0,15 | vizinhança quase limpa faz decair 1 nível por geração |
+| `probDecaimento` | 0,03 | degradação própria; é o motor da recuperação |
+| `limiarMorte` | 0,60 | a vegetação resiste a 1 vizinho grave e morre com 2 |
+| `absorcao` | 0,02 | desconto na pressão por vizinho arbusto/árvore |
+| `probBrotar` | 0,05 | por vizinho com vegetação |
+| `probCrescer1` | 0,030 | grama → arbusto |
+| `probCrescer2` | 0,015 | arbusto → árvore |
+| `vizinhosParaRachar` | 2 | o K da regra do concreto |
+| `probRachar` | 0,012 | velocidade com que a mata racha o concreto |
+| `pesoVentoForte` / `pesoVentoFraco` | 2 / 0,5 | pesos do vento |
+
+### Calibração
+
+```bash
+npm run calibrar
+npm run calibrar -- geracoes=600 abandono=150 vento=norte probDecaimento=0.05
+```
+
+Roda a simulação **sem interface** e imprime os indicadores a cada N gerações. Qualquer
+parâmetro pode ser sobrescrito na linha de comando, o que permite comparar cenários sem
+editar código. Foi com ele que os valores acima foram escolhidos.
+
+Resultado com os padrões (160x100, semente `retomada`, abandono na geração 100):
+
+| Geração | Contaminado | Vegetação | Concreto |
+| --- | --- | --- | --- |
+| 0 | 0,0 % | 23,6 % | 25,9 % |
+| 30 | 16,2 % | 46,7 % | 25,9 % |
+| 100 — *abandono* | 58,6 % | 14,3 % | 25,3 % |
+| 140 | 50,2 % | 14,2 % | 25,2 % |
+| 200 | 20,5 % | 15,2 % | 25,1 % |
+| 238 | 5,9 % | 19,4 % | 25,1 % |
+| 300 | 0,3 % | 38,9 % | 24,9 % |
+| 400 | 0,0 % | 63,2 % | 22,0 % |
+
+Os dois alvos do enunciado ficam atendidos: a contaminação é claramente visível na
+geração 30 e 90 % dela some 138 gerações depois do abandono. O script também é a prova
+prática de que a engine não depende do navegador — é a mesma simulação do canvas
+rodando no Node, sem nenhuma adaptação.
 
 ---
 
@@ -183,7 +276,7 @@ A suíte cobre apenas a engine, e cada arquivo tem um propósito declarado:
 | `jogoDaVida.test.ts` | O planador se desloca 1 célula na diagonal a cada 4 gerações, atravessa a borda e volta ao ponto de partida; bloco estável; pisca-pisca com período 2. |
 | `reprodutibilidade.test.ts` | A mesma semente gera exatamente a mesma simulação, inclusive com regra probabilística; `reiniciar` recria o gerador. |
 | `arquitetura.test.ts` | Nenhum arquivo da engine referencia o navegador ou importa de fora do diretório. |
-| `cenarioCidade.test.ts` | Casos do cenário da cidade, declarados como pendentes até a etapa 3. |
+| `cenarioCidade.test.ts` | Cada uma das cinco regras do cenário isoladamente; a média ponderada equivalente em Von Neumann e Moore; o vento; a absorção; a contaminação nunca aumentando com a cidade abandonada; e a recuperação completa de uma cidade inteira. |
 
 ---
 
@@ -194,8 +287,8 @@ A suíte cobre apenas a engine, e cada arquivo tem um propósito declarado:
 - [x] **Etapa 2 — renderização e passo a passo.** Canvas via `ImageData`, laço de
       animação, play/pause, próxima geração, velocidade, contador, mapas iniciais,
       pincel básico e tema escuro responsivo.
-- [ ] **Etapa 3 — regras do cenário cidade.** Pressão, vento, absorção, abandono da
-      cidade e o mapa "Cidade" gerado proceduralmente.
+- [x] **Etapa 3 — regras do cenário cidade.** Pressão, vento, absorção, abandono da
+      cidade, o mapa "Cidade" gerado proceduralmente e o script de calibração.
 - [ ] **Etapa 4 — interface completa.** Parâmetros editáveis, pincel com seleção de
       estado, estatísticas ao vivo e exportação em CSV e PNG.
 

@@ -2,12 +2,16 @@ import './estilo.css';
 
 import {
   aplicarMapa,
+  criarParametrosCidade,
+  criarRegraCidade,
   criarRegraJogoDaVida,
-  MORTA,
+  Estado,
   sementeDeTexto,
   Simulacao,
   VIVA,
   type IdMapa,
+  type IdRegra,
+  type Regra,
 } from './engine';
 import { Renderizador } from './render';
 import { conectarControles, conectarPincel, criarLaco, elemento } from './ui';
@@ -22,22 +26,42 @@ import { conectarControles, conectarPincel, criarLaco, elemento } from './ui';
 
 /* Grade padrão: 160x100 = 16 mil células. Grande o bastante para os padrões do
  * cenário aparecerem e pequena o bastante para caber confortavelmente em 60
- * quadros por segundo, mesmo em um notebook modesto. */
+ * quadros por segundo, mesmo em um notebook modesto.
+ *
+ * O tamanho também importa para o CENÁRIO, e não só para o desempenho: a
+ * recuperação depende de a faixa de vegetação da borda sobreviver à fase
+ * industrial, porque a vegetação só brota ao lado de vegetação já existente. */
 const LARGURA = 160;
 const ALTURA = 100;
 const SEMENTE_PADRAO = 'retomada';
 const VELOCIDADE_PADRAO = 10;
 
+/*
+ * Os parâmetros do cenário vivem aqui e são COMPARTILHADOS com a regra: ela os
+ * captura no fechamento. Mexer em um controle do painel altera este objeto, e o
+ * efeito vale já na geração seguinte — sem reconstruir a regra nem reiniciar a
+ * simulação. É o que faz o botão "Abandonar cidade" funcionar no meio da
+ * execução.
+ */
+const parametrosCidade = criarParametrosCidade();
+
+/** As duas regras são criadas uma vez só; o seletor apenas troca qual está em uso. */
+const regras: Readonly<Record<IdRegra, Regra>> = {
+  cidade: criarRegraCidade(parametrosCidade),
+  'jogo-da-vida': criarRegraJogoDaVida(),
+};
+
 const simulacao = new Simulacao({
   largura: LARGURA,
   altura: ALTURA,
   semente: sementeDeTexto(SEMENTE_PADRAO),
-  // Etapa 2: só o Jogo da Vida está disponível. A regra do cenário da cidade
-  // entra na etapa 3 e será selecionável no mesmo painel.
-  regra: criarRegraJogoDaVida(),
+  regra: regras.cidade,
   vizinhanca: 'moore',
   raio: 1,
-  contorno: 'periodico',
+  // Contorno fixo é o padrão do cenário: fora da grade é solo limpo, então o
+  // entorno da cidade funciona como um sumidouro que dilui a contaminação nas
+  // bordas. Com contorno periódico a mancha daria a volta e voltaria por trás.
+  contorno: 'fixo',
 });
 
 const renderizador = new Renderizador(elemento<HTMLCanvasElement>('tela'), LARGURA, ALTURA);
@@ -62,6 +86,11 @@ const controles = conectarControles({
   aoReiniciar: () => recarregarMapa(),
 
   aoMudarVelocidade: (velocidade) => laco.definirVelocidade(velocidade),
+
+  aoMudarRegra: (id) => {
+    simulacao.definirRegra(regras[id]);
+    atualizarTela();
+  },
 
   aoMudarMapa: (mapa) => recarregarMapa(mapa),
 
@@ -90,13 +119,24 @@ const controles = conectarControles({
     simulacao.definirContorno(tipo);
     atualizarTela();
   },
+
+  aoMudarVento: (vento) => {
+    parametrosCidade.vento = vento;
+  },
+
+  aoAlternarAbandono: () => {
+    parametrosCidade.cidadeAbandonada = !parametrosCidade.cidadeAbandonada;
+    atualizarTela();
+  },
 });
 
 conectarPincel({
   canvas: elemento<HTMLCanvasElement>('tela'),
   localizar: (x, y) => renderizador.celulaEm(x, y),
   pintar: (x, y, apagar) => {
-    simulacao.definirCelula(x, y, apagar ? MORTA : VIVA);
+    // O pincel com seleção de estado chega na etapa 4; por ora ele pinta
+    // vegetação e apaga para solo limpo, o que já serve às duas regras.
+    simulacao.definirCelula(x, y, apagar ? Estado.SOLO : VIVA);
     // Redesenhar a cada célula pintada mantém o traço colado no ponteiro; como
     // só acontece durante o arrasto, o custo é irrelevante.
     atualizarTela();
@@ -110,16 +150,19 @@ conectarPincel({
  * dentro dos manipuladores, sem depender da ordem de declaração.
  */
 function atualizarTela(): void {
-  const estatisticas = simulacao.estatisticas();
   renderizador.desenhar(simulacao.grade);
-  // No Jogo da Vida, "viva" é a grama — daí a contagem sair do mesmo vetor de
-  // estatísticas que o cenário da cidade usará para a vegetação.
-  controles.atualizarEstatisticas(estatisticas, estatisticas.contagem[VIVA] ?? 0);
+  controles.atualizarEstatisticas(simulacao.estatisticas());
   controles.definirRodando(laco.rodando);
+  controles.definirAbandonada(
+    parametrosCidade.cidadeAbandonada,
+    simulacao.regra.id === 'cidade',
+  );
 }
 
 /** Recarrega o mapa inicial com a semente que estiver no painel. */
 function recarregarMapa(mapa: IdMapa = controles.lerMapa()): void {
+  // Recarregar um mapa é recomeçar o experimento: a cidade volta a estar ativa.
+  parametrosCidade.cidadeAbandonada = false;
   aplicarMapa(simulacao, mapa, sementeDeTexto(controles.lerSemente()));
   atualizarTela();
 }

@@ -81,7 +81,8 @@
           <label class="campo" for="ctrl-regra">
             <span class="rotulo">Regra</span>
             <select id="ctrl-regra">
-              <option value="jogo-da-vida" selected>Jogo da Vida (B3/S23)</option>
+              <option value="cidade" selected>Cidade (contaminação)</option>
+              <option value="jogo-da-vida">Jogo da Vida (B3/S23)</option>
             </select>
           </label>
 
@@ -103,9 +104,28 @@
 
           <label class="campo" for="ctrl-contorno">
             <span class="rotulo">Contorno</span>
+            <!-- Fixo é o padrão do cenário da cidade: o entorno funciona como
+                 sumidouro e dilui a contaminação nas bordas. -->
             <select id="ctrl-contorno">
-              <option value="periodico" selected>Periódico (toroidal)</option>
-              <option value="fixo">Fixo (fora = solo limpo)</option>
+              <option value="fixo" selected>Fixo (fora = solo limpo)</option>
+              <option value="periodico">Periódico (toroidal)</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="grupo">
+          <h2>Cenário da cidade</h2>
+
+          <button id="btn-abandonar" type="button" class="destaque">🏭 Abandonar cidade</button>
+
+          <label class="campo" for="ctrl-vento">
+            <span class="rotulo">Vento</span>
+            <select id="ctrl-vento">
+              <option value="nenhum" selected>Sem vento</option>
+              <option value="norte">Norte (empurra para o sul)</option>
+              <option value="sul">Sul (empurra para o norte)</option>
+              <option value="leste">Leste (empurra para o oeste)</option>
+              <option value="oeste">Oeste (empurra para o leste)</option>
             </select>
           </label>
         </section>
@@ -116,7 +136,8 @@
           <label class="campo" for="ctrl-mapa">
             <span class="rotulo">Mapa</span>
             <select id="ctrl-mapa">
-              <option value="aleatorio" selected>Sopa aleatória</option>
+              <option value="cidade" selected>Cidade</option>
+              <option value="aleatorio">Sopa aleatória</option>
               <option value="glider">Planador (glider)</option>
               <option value="vazio">Vazio</option>
             </select>
@@ -139,20 +160,23 @@
               <dd id="stat-geracao">0</dd>
             </div>
             <div>
-              <dt>Células vivas</dt>
-              <dd id="stat-vivas">0</dd>
+              <dt>Contaminado</dt>
+              <dd id="stat-contaminado">0,0 %</dd>
             </div>
             <div>
-              <dt>% da grade</dt>
-              <dd id="stat-percentual">0,0 %</dd>
+              <dt>Vegetação</dt>
+              <dd id="stat-vegetacao">0,0 %</dd>
+            </div>
+            <div>
+              <dt>Concreto</dt>
+              <dd id="stat-concreto">0,0 %</dd>
             </div>
           </dl>
         </section>
 
         <p class="nota">
-          Etapa 2 de 4: engine, renderização e execução passo a passo. As regras do
-          cenário da cidade, o painel completo e a exportação de dados chegam nas
-          próximas etapas.
+          Etapa 3 de 4: regras do cenário da cidade. O painel completo com todos os
+          parâmetros, o pincel por estado e a exportação em CSV e PNG chegam na etapa 4.
         </p>
       </aside>
 

@@ -10,12 +10,14 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "calibrar": "vite-node scripts/calibrar.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",
     "typescript": "^7.0.2",
     "vite": "^8.3.0",
+    "vite-node": "^6.0.0",
     "vitest": "^5.0.1"
   }
 }

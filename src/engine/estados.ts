@@ -79,6 +79,16 @@ export function ehVegetacao(estado: Estado): boolean {
 }
 
 /**
+ * Verdadeiro para arbusto e árvore — a vegetação "lenhosa", de porte maior.
+ *
+ * É ela que absorve contaminação e que racha o concreto; a grama, por ser
+ * rasteira, não faz nenhuma das duas coisas. Daí valer um predicado próprio.
+ */
+export function ehLenhoso(estado: Estado): boolean {
+  return estado === Estado.ARBUSTO || estado === Estado.ARVORE;
+}
+
+/**
  * Nível de contaminação que a célula "emite" para a vizinhança, de 0 a 3.
  *
  * Solo e contaminação usam o próprio valor do estado (daí a ordem do enum ser

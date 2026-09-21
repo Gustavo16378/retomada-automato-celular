@@ -287,3 +287,19 @@ input[type='range'] {
     text-align: center;
   }
 }
+
+/*
+ * Botão de destaque do cenário: chama atenção para a ação central da
+ * simulação (abandonar a cidade). Ao ser acionado ele perde o destaque, porque
+ * a ação inversa — reativar — não é a que queremos sugerir.
+ */
+button.destaque {
+  border-color: #7a4a3a;
+  background: #3a221b;
+  color: #ffb9a3;
+}
+
+button.destaque:hover:not(:disabled) {
+  background: #4c2c22;
+  border-color: #a05c45;
+}
