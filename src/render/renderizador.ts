@@ -1,4 +1,11 @@
-import { COR_FUNDO, PALETA_RGB } from './paleta';
+import type { CamadaDeUso } from '../engine';
+import {
+  APARENCIA_POR_ESTADO_E_USO,
+  COR_FUNDO,
+  NIVEIS_DE_TOM,
+  PALETA_VARIADA,
+  tomDaCelula,
+} from './paleta';
 
 /** Posição de uma célula na grade. */
 export interface PosicaoCelula {
@@ -9,11 +16,11 @@ export interface PosicaoCelula {
 /**
  * Desenha a grade no canvas.
  *
- * ESTRATÉGIA: um `fillRect` por célula seriam 16 mil chamadas ao contexto 2D por
+ * ESTRATÉGIA: um `fillRect` por célula seriam 25 mil chamadas ao contexto 2D por
  * quadro — o suficiente para derrubar a taxa de quadros. Em vez disso:
  *
  *   1. escrevemos os pixels de uma vez em um `ImageData` do tamanho EXATO da
- *      grade (160x100 = 16 mil pixels, um por célula);
+ *      grade (200x125 = 25 mil pixels, um por célula);
  *   2. jogamos esse `ImageData` em um canvas auxiliar, fora da tela;
  *   3. ampliamos esse canvas para o canvas visível com um único `drawImage`,
  *      com a suavização desligada para os pixels ficarem quadrados e nítidos.
@@ -30,6 +37,14 @@ export class Renderizador {
   private readonly canvasAuxiliar: HTMLCanvasElement;
   private readonly contextoAuxiliar: CanvasRenderingContext2D;
   private readonly imagem: ImageData;
+  /**
+   * Índice pré-calculado da paleta para o tom de cada célula.
+   *
+   * Guardar `tom * 3` em vez do tom poupa uma multiplicação por pixel por
+   * quadro. É calculado uma vez, na construção, porque o tom depende apenas das
+   * coordenadas — é justamente o que faz a variação ficar estável entre quadros.
+   */
+  private readonly tons: Uint8Array;
 
   /** Geometria do último ajuste: quantos pixels do canvas cada célula ocupa. */
   private escala = 1;
@@ -58,6 +73,11 @@ export class Renderizador {
     // aqui. A cada quadro o laço só precisa escrever R, G e B.
     const dados = this.imagem.data;
     for (let i = 3; i < dados.length; i += 4) dados[i] = 255;
+
+    this.tons = new Uint8Array(largura * altura);
+    for (let y = 0, i = 0; y < altura; y++) {
+      for (let x = 0; x < largura; x++, i++) this.tons[i] = tomDaCelula(x, y) * 3;
+    }
 
     // A proporção da grade é fixada no elemento para que o CSS possa reservar o
     // espaço certo antes mesmo do primeiro desenho, evitando um salto no layout.
@@ -96,15 +116,29 @@ export class Renderizador {
     this.deslocamentoY = Math.floor((altura - this.altura * this.escala) / 2);
   }
 
-  /** Desenha a grade recebida. */
-  desenhar(grade: Uint8Array): void {
+  /**
+   * Desenha a grade recebida.
+   *
+   * @param usos camada estática de uso do solo, que distingue rua, casa e prédio
+   *   dentro do mesmo estado `CONCRETO`. Ver `uso.ts`.
+   */
+  desenhar(grade: Uint8Array, usos: CamadaDeUso): void {
     const dados = this.imagem.data;
+    const { tons } = this;
 
+    /*
+     * O laço mais quente do projeto: roda uma vez por célula, a cada quadro.
+     *
+     * Ele não tem nenhum `if`, nenhuma conta de cor e nenhuma chamada de função
+     * — só três indexações. Tanto a escolha da aparência (estado + uso) quanto a
+     * variação de tom já estão resolvidas em tabelas montadas na inicialização.
+     */
     for (let celula = 0, pixel = 0; celula < grade.length; celula++, pixel += 4) {
-      const cor = grade[celula]! * 3;
-      dados[pixel] = PALETA_RGB[cor]!;
-      dados[pixel + 1] = PALETA_RGB[cor + 1]!;
-      dados[pixel + 2] = PALETA_RGB[cor + 2]!;
+      const aparencia = APARENCIA_POR_ESTADO_E_USO[usos[celula]! * 16 + grade[celula]!]!;
+      const cor = aparencia * NIVEIS_DE_TOM * 3 + tons[celula]!;
+      dados[pixel] = PALETA_VARIADA[cor]!;
+      dados[pixel + 1] = PALETA_VARIADA[cor + 1]!;
+      dados[pixel + 2] = PALETA_VARIADA[cor + 2]!;
     }
 
     this.contextoAuxiliar.putImageData(this.imagem, 0, 0);

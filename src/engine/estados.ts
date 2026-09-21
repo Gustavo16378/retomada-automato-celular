@@ -19,8 +19,8 @@ export enum Estado {
   CONTAMINADO_LEVE = 1,
   CONTAMINADO_MODERADO = 2,
   CONTAMINADO_GRAVE = 3,
-  /** Fonte de contaminação enquanto a cidade estiver ativa. Nunca muda de estado. */
-  FABRICA = 4,
+  /** Usina nuclear: fonte de contaminação durante o acidente. Nunca muda de estado. */
+  USINA = 4,
   /** Piso urbano: impermeável à contaminação, mas rachável pela vegetação. */
   CONCRETO = 5,
   GRAMA = 6,
@@ -37,7 +37,7 @@ export const TODOS_OS_ESTADOS: readonly Estado[] = [
   Estado.CONTAMINADO_LEVE,
   Estado.CONTAMINADO_MODERADO,
   Estado.CONTAMINADO_GRAVE,
-  Estado.FABRICA,
+  Estado.USINA,
   Estado.CONCRETO,
   Estado.GRAMA,
   Estado.ARBUSTO,
@@ -50,7 +50,7 @@ export const NOME_ESTADO: Readonly<Record<Estado, string>> = {
   [Estado.CONTAMINADO_LEVE]: 'Contaminação leve',
   [Estado.CONTAMINADO_MODERADO]: 'Contaminação moderada',
   [Estado.CONTAMINADO_GRAVE]: 'Contaminação grave',
-  [Estado.FABRICA]: 'Fábrica',
+  [Estado.USINA]: 'Usina nuclear',
   [Estado.CONCRETO]: 'Concreto',
   [Estado.GRAMA]: 'Grama',
   [Estado.ARBUSTO]: 'Arbusto',
@@ -89,17 +89,16 @@ export function ehLenhoso(estado: Estado): boolean {
 }
 
 /**
- * Nível de contaminação que a célula "emite" para a vizinhança, de 0 a 3.
+ * Nível de contaminação que a célula "emite" para a vizinhança imediata, de 0 a 3.
  *
- * Solo e contaminação usam o próprio valor do estado (daí a ordem do enum ser
- * importante). A fábrica é tratada à parte porque sua emissão depende de a
- * cidade estar ativa ou abandonada — por isso o nível dela é um parâmetro em vez
- * de uma constante. Concreto e vegetação não emitem nada.
+ * Solo e contaminação usam o próprio valor do estado — daí a ordem do enum ser
+ * importante. Concreto e vegetação não emitem nada.
  *
- * @param emissaoDaFabrica nível emitido por uma fábrica ativa (0 se abandonada).
+ * A USINA também devolve 0 aqui, e isso é de propósito: a emissão dela não passa
+ * pela vizinhança imediata, e sim por um termo de fonte à parte, calculado sobre
+ * um raio maior (ver `criarRegraCenario`). Se contasse nos dois lugares, seria
+ * contada em dobro.
  */
-export function nivelDeContaminacao(estado: Estado, emissaoDaFabrica: number): number {
-  if (ehSoloOuContaminado(estado)) return estado;
-  if (estado === Estado.FABRICA) return emissaoDaFabrica;
-  return 0;
+export function nivelDeContaminacao(estado: Estado): number {
+  return ehSoloOuContaminado(estado) ? estado : 0;
 }

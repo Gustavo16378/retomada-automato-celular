@@ -8,7 +8,7 @@
     <title>Retomada — autômato celular de contaminação e recuperação</title>
     <meta
       name="description"
-      content="Autômato celular 2D em TypeScript: fábricas contaminam o solo de uma cidade e, quando ela é abandonada, a vegetação retoma o terreno geração após geração."
+      content="Autômato celular 2D em TypeScript: o vazamento de uma usina nuclear contamina a cidade e a floresta; construído o sarcófago, a natureza retoma o terreno geração após geração."
     />
     <meta name="author" content="Gustavo Dev" />
 
@@ -23,19 +23,19 @@
     <meta property="og:title" content="Retomada — autômato celular de contaminação e recuperação" />
     <meta
       property="og:description"
-      content="Simulação de contaminação ambiental e recuperação da vegetação com autômatos celulares. TypeScript, Canvas 2D, sem frameworks."
+      content="Acidente nuclear, contaminação e recuperação da natureza simulados com autômatos celulares. TypeScript, Canvas 2D, sem frameworks."
     />
     <meta property="og:image" content="https://SEU-DOMINIO-AQUI/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Grade do autômato celular com contaminação avançando sobre a vegetação." />
+    <meta property="og:image:alt" content="Grade do autômato celular com a contaminação avançando sobre a cidade e a floresta." />
 
     <!-- Twitter/X usa as tags acima, mas exige o tipo de card explicitamente. -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Retomada — autômato celular de contaminação e recuperação" />
     <meta
       name="twitter:description"
-      content="Simulação de contaminação ambiental e recuperação da vegetação com autômatos celulares. TypeScript, Canvas 2D, sem frameworks."
+      content="Acidente nuclear, contaminação e recuperação da natureza simulados com autômatos celulares. TypeScript, Canvas 2D, sem frameworks."
     />
     <meta name="twitter:image" content="https://SEU-DOMINIO-AQUI/og-image.png" />
 
@@ -47,7 +47,7 @@
       <header class="cabecalho">
         <h1>Retomada</h1>
         <p class="subtitulo">
-          Autômato celular 2D — contaminação industrial e recuperação da vegetação
+          Autômato celular 2D — acidente nuclear, contaminação e retomada da natureza
         </p>
       </header>
 
@@ -81,7 +81,7 @@
           <label class="campo" for="ctrl-regra">
             <span class="rotulo">Regra</span>
             <select id="ctrl-regra">
-              <option value="cidade" selected>Cidade (contaminação)</option>
+              <option value="acidente" selected>Acidente nuclear</option>
               <option value="jogo-da-vida">Jogo da Vida (B3/S23)</option>
             </select>
           </label>
@@ -104,7 +104,7 @@
 
           <label class="campo" for="ctrl-contorno">
             <span class="rotulo">Contorno</span>
-            <!-- Fixo é o padrão do cenário da cidade: o entorno funciona como
+            <!-- Fixo é o padrão do cenário: o entorno do mapa funciona como
                  sumidouro e dilui a contaminação nas bordas. -->
             <select id="ctrl-contorno">
               <option value="fixo" selected>Fixo (fora = solo limpo)</option>
@@ -114,9 +114,14 @@
         </section>
 
         <section class="grupo">
-          <h2>Cenário da cidade</h2>
+          <h2>Cenário</h2>
 
-          <button id="btn-abandonar" type="button" class="destaque">🏭 Abandonar cidade</button>
+          <p class="fase">
+            Fase atual: <strong id="stat-fase" data-fase="normal">Operação normal</strong>
+          </p>
+
+          <button id="btn-acidente" type="button" class="destaque">☢ Acidente</button>
+          <button id="btn-sarcofago" type="button" disabled>🧱 Construir sarcófago</button>
 
           <label class="campo" for="ctrl-vento">
             <span class="rotulo">Vento</span>
@@ -136,7 +141,7 @@
           <label class="campo" for="ctrl-mapa">
             <span class="rotulo">Mapa</span>
             <select id="ctrl-mapa">
-              <option value="cidade" selected>Cidade</option>
+              <option value="cidade" selected>Cidade e usina</option>
               <option value="aleatorio">Sopa aleatória</option>
               <option value="glider">Planador (glider)</option>
               <option value="vazio">Vazio</option>
@@ -175,7 +180,7 @@
         </section>
 
         <p class="nota">
-          Etapa 3 de 4: regras do cenário da cidade. O painel completo com todos os
+          Etapa 3 de 4: cenário do acidente nuclear. O painel completo com todos os
           parâmetros, o pincel por estado e a exportação em CSV e PNG chegam na etapa 4.
         </p>
       </aside>

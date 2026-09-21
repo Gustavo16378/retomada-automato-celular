@@ -2,13 +2,15 @@ import './estilo.css';
 
 import {
   aplicarMapa,
-  criarParametrosCidade,
-  criarRegraCidade,
+  criarParametrosCenario,
+  criarRegraCenario,
   criarRegraJogoDaVida,
+  criarCamadaDeUso,
   Estado,
   sementeDeTexto,
   Simulacao,
   VIVA,
+  type CamadaDeUso,
   type IdMapa,
   type IdRegra,
   type Regra,
@@ -24,15 +26,16 @@ import { conectarControles, conectarPincel, criarLaco, elemento } from './ui';
  * existe estado global — tudo o mais recebe o que precisa por parâmetro.
  */
 
-/* Grade padrão: 160x100 = 16 mil células. Grande o bastante para os padrões do
- * cenário aparecerem e pequena o bastante para caber confortavelmente em 60
- * quadros por segundo, mesmo em um notebook modesto.
+/* Grade padrão: 200x125 = 25 mil células. O tamanho foi escolhido pelo DETALHE
+ * que ele permite: casas de 2x2 e ruas de 2 células só fazem sentido visual com
+ * a grade grande, e a floresta gerada por suavização precisa de espaço para as
+ * manchas aparecerem.
  *
- * O tamanho também importa para o CENÁRIO, e não só para o desempenho: a
- * recuperação depende de a faixa de vegetação da borda sobreviver à fase
- * industrial, porque a vegetação só brota ao lado de vegetação já existente. */
-const LARGURA = 160;
-const ALTURA = 100;
+ * O tamanho também importa para o CENÁRIO: a recuperação depende de sobrar mata
+ * viva em algum canto quando o sarcófago é fechado, porque a vegetação só brota
+ * ao lado de vegetação já existente. */
+const LARGURA = 200;
+const ALTURA = 125;
 const SEMENTE_PADRAO = 'retomada';
 const VELOCIDADE_PADRAO = 10;
 
@@ -40,14 +43,13 @@ const VELOCIDADE_PADRAO = 10;
  * Os parâmetros do cenário vivem aqui e são COMPARTILHADOS com a regra: ela os
  * captura no fechamento. Mexer em um controle do painel altera este objeto, e o
  * efeito vale já na geração seguinte — sem reconstruir a regra nem reiniciar a
- * simulação. É o que faz o botão "Abandonar cidade" funcionar no meio da
- * execução.
+ * simulação. É o que faz os botões de fase agirem no meio da execução.
  */
-const parametrosCidade = criarParametrosCidade();
+const parametros = criarParametrosCenario();
 
 /** As duas regras são criadas uma vez só; o seletor apenas troca qual está em uso. */
 const regras: Readonly<Record<IdRegra, Regra>> = {
-  cidade: criarRegraCidade(parametrosCidade),
+  acidente: criarRegraCenario(parametros),
   'jogo-da-vida': criarRegraJogoDaVida(),
 };
 
@@ -55,14 +57,22 @@ const simulacao = new Simulacao({
   largura: LARGURA,
   altura: ALTURA,
   semente: sementeDeTexto(SEMENTE_PADRAO),
-  regra: regras.cidade,
+  regra: regras.acidente,
   vizinhanca: 'moore',
   raio: 1,
   // Contorno fixo é o padrão do cenário: fora da grade é solo limpo, então o
-  // entorno da cidade funciona como um sumidouro que dilui a contaminação nas
+  // entorno do mapa funciona como um sumidouro que dilui a contaminação nas
   // bordas. Com contorno periódico a mancha daria a volta e voltaria por trás.
   contorno: 'fixo',
 });
+
+/**
+ * Camada estática de uso do solo, que o mapa produz e só o renderizador lê.
+ *
+ * Ela fica aqui, e não dentro da simulação, justamente para que nenhuma regra
+ * consiga alcançá-la — ver `uso.ts`.
+ */
+let usos: CamadaDeUso = criarCamadaDeUso(simulacao.totalCelulas);
 
 const renderizador = new Renderizador(elemento<HTMLCanvasElement>('tela'), LARGURA, ALTURA);
 
@@ -121,11 +131,16 @@ const controles = conectarControles({
   },
 
   aoMudarVento: (vento) => {
-    parametrosCidade.vento = vento;
+    parametros.vento = vento;
   },
 
-  aoAlternarAbandono: () => {
-    parametrosCidade.cidadeAbandonada = !parametrosCidade.cidadeAbandonada;
+  aoDispararAcidente: () => {
+    parametros.fase = 'acidente';
+    atualizarTela();
+  },
+
+  aoConstruirSarcofago: () => {
+    parametros.fase = 'sarcofago';
     atualizarTela();
   },
 });
@@ -150,20 +165,18 @@ conectarPincel({
  * dentro dos manipuladores, sem depender da ordem de declaração.
  */
 function atualizarTela(): void {
-  renderizador.desenhar(simulacao.grade);
+  renderizador.desenhar(simulacao.grade, usos);
   controles.atualizarEstatisticas(simulacao.estatisticas());
   controles.definirRodando(laco.rodando);
-  controles.definirAbandonada(
-    parametrosCidade.cidadeAbandonada,
-    simulacao.regra.id === 'cidade',
-  );
+  controles.definirFase(parametros.fase, simulacao.regra.id === 'acidente');
 }
 
 /** Recarrega o mapa inicial com a semente que estiver no painel. */
 function recarregarMapa(mapa: IdMapa = controles.lerMapa()): void {
-  // Recarregar um mapa é recomeçar o experimento: a cidade volta a estar ativa.
-  parametrosCidade.cidadeAbandonada = false;
-  aplicarMapa(simulacao, mapa, sementeDeTexto(controles.lerSemente()));
+  // Recarregar um mapa é recomeçar o experimento do zero: a usina volta a operar
+  // normalmente e a cidade, a ser habitada.
+  parametros.fase = 'normal';
+  usos = aplicarMapa(simulacao, mapa, sementeDeTexto(controles.lerSemente()));
   atualizarTela();
 }
 

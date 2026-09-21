@@ -14,5 +14,6 @@ export * from './rng';
 export * from './contorno';
 export * from './vizinhanca';
 export * from './regras';
+export * from './uso';
 export * from './simulacao';
 export * from './mapas';

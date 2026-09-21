@@ -1,5 +1,6 @@
 import type {
   Estatisticas,
+  Fase,
   IdMapa,
   IdRegra,
   Raio,
@@ -7,6 +8,7 @@ import type {
   TipoVizinhanca,
   Vento,
 } from '../engine';
+import { NOME_FASE } from '../engine';
 import { campo, definirTexto, elemento, formatarNumero } from './dom';
 
 /**
@@ -30,14 +32,15 @@ export interface ManipuladoresControles {
   aoMudarRaio: (raio: Raio) => void;
   aoMudarContorno: (tipo: TipoContorno) => void;
   aoMudarVento: (vento: Vento) => void;
-  aoAlternarAbandono: () => void;
+  aoDispararAcidente: () => void;
+  aoConstruirSarcofago: () => void;
 }
 
 /** O que `main.ts` pode pedir ao painel depois de conectado. */
 export interface Controles {
   atualizarEstatisticas: (estatisticas: Estatisticas) => void;
   definirRodando: (rodando: boolean) => void;
-  definirAbandonada: (abandonada: boolean, cenarioAtivo: boolean) => void;
+  definirFase: (fase: Fase, cenarioAtivo: boolean) => void;
   definirSemente: (texto: string) => void;
   lerSemente: () => string;
   lerRegra: () => IdRegra;
@@ -61,7 +64,7 @@ function escolhaValida<T extends string>(valor: string, opcoes: readonly T[], ro
   return encontrada;
 }
 
-const REGRAS: readonly IdRegra[] = ['cidade', 'jogo-da-vida'];
+const REGRAS: readonly IdRegra[] = ['acidente', 'jogo-da-vida'];
 const MAPAS: readonly IdMapa[] = ['cidade', 'vazio', 'glider', 'aleatorio'];
 const VIZINHANCAS: readonly TipoVizinhanca[] = ['vonNeumann', 'moore'];
 const CONTORNOS: readonly TipoContorno[] = ['periodico', 'fixo'];
@@ -72,7 +75,8 @@ export function conectarControles(manipuladores: ManipuladoresControles): Contro
   const botaoPasso = elemento<HTMLButtonElement>('btn-passo');
   const botaoReiniciar = elemento<HTMLButtonElement>('btn-reiniciar');
   const botaoSortear = elemento<HTMLButtonElement>('btn-sortear');
-  const botaoAbandonar = elemento<HTMLButtonElement>('btn-abandonar');
+  const botaoAcidente = elemento<HTMLButtonElement>('btn-acidente');
+  const botaoSarcofago = elemento<HTMLButtonElement>('btn-sarcofago');
 
   const controleVelocidade = campo<HTMLInputElement>('ctrl-velocidade');
   const controleRegra = campo<HTMLSelectElement>('ctrl-regra');
@@ -88,12 +92,14 @@ export function conectarControles(manipuladores: ManipuladoresControles): Contro
   const statContaminado = elemento('stat-contaminado');
   const statVegetacao = elemento('stat-vegetacao');
   const statConcreto = elemento('stat-concreto');
+  const statFase = elemento('stat-fase');
 
   botaoExecutar.addEventListener('click', manipuladores.aoAlternarExecucao);
   botaoPasso.addEventListener('click', manipuladores.aoPassoUnico);
   botaoReiniciar.addEventListener('click', manipuladores.aoReiniciar);
   botaoSortear.addEventListener('click', manipuladores.aoSortearSemente);
-  botaoAbandonar.addEventListener('click', manipuladores.aoAlternarAbandono);
+  botaoAcidente.addEventListener('click', manipuladores.aoDispararAcidente);
+  botaoSarcofago.addEventListener('click', manipuladores.aoConstruirSarcofago);
 
   // `input` (e não `change`) para o resultado acompanhar o arrastar do controle.
   controleVelocidade.addEventListener('input', () => {
@@ -151,12 +157,25 @@ export function conectarControles(manipuladores: ManipuladoresControles): Contro
       botaoExecutar.setAttribute('aria-pressed', String(rodando));
     },
 
-    definirAbandonada(abandonada, cenarioAtivo): void {
-      definirTexto(botaoAbandonar, abandonada ? '🏭 Reativar cidade' : '🏭 Abandonar cidade');
-      botaoAbandonar.classList.toggle('destaque', !abandonada);
-      // O abandono só faz sentido na regra do cenário; no Jogo da Vida não há
-      // fábrica nenhuma para desligar.
-      botaoAbandonar.disabled = !cenarioAtivo;
+    /**
+     * Espelha a fase nos controles.
+     *
+     * Cada botão só fica disponível na fase em que a ação dele faz sentido, o
+     * que torna impossível pular etapas: não há como construir o sarcófago de um
+     * reator que ainda não vazou. O caminho de volta é o "Reiniciar", que
+     * recarrega o mapa na fase normal.
+     */
+    definirFase(fase, cenarioAtivo): void {
+      definirTexto(statFase, NOME_FASE[fase]);
+      statFase.dataset['fase'] = fase;
+
+      botaoAcidente.disabled = !cenarioAtivo || fase !== 'normal';
+      botaoSarcofago.disabled = !cenarioAtivo || fase !== 'acidente';
+      botaoAcidente.classList.toggle('destaque', cenarioAtivo && fase === 'normal');
+      botaoSarcofago.classList.toggle('destaque', cenarioAtivo && fase === 'acidente');
+
+      // O cenário só existe na regra do acidente; no Jogo da Vida não há usina
+      // nenhuma para vazar nem vento que carregue nada.
       controleVento.disabled = !cenarioAtivo;
     },
 

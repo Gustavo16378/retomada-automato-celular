@@ -303,3 +303,24 @@ button.destaque:hover:not(:disabled) {
   background: #4c2c22;
   border-color: #a05c45;
 }
+
+/* Indicador de fase do cenário. */
+.fase {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--texto-suave);
+}
+
+.fase strong {
+  color: var(--texto);
+}
+
+/* A cor acompanha a gravidade: normal neutro, vazamento radioativo, sarcófago
+   de volta ao verde da vegetação. */
+.fase strong[data-fase='acidente'] {
+  color: #d4f53f;
+}
+
+.fase strong[data-fase='sarcofago'] {
+  color: var(--destaque-claro);
+}

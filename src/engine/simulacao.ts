@@ -72,6 +72,13 @@ export class Simulacao {
   private raioVizinhanca: Raio;
   private tipoContorno: TipoContorno;
   private vizinhanca: Vizinhanca;
+  /**
+   * Segunda vizinhança, de raio maior, para regras com fontes de longo alcance.
+   *
+   * Quando a regra não declara `raioAmplo`, ela é montada com o mesmo raio da
+   * normal: custa pouco e evita espalhar `null` pelo contrato das regras.
+   */
+  private vizinhancaAmpla: Vizinhanca;
 
   private geracaoAtual = 0;
   private sementeAtual: number;
@@ -103,13 +110,15 @@ export class Simulacao {
 
     this.sementeAtual = config.semente;
     this.geradorAtual = criarRng(config.semente);
-    this.vizinhanca = this.montarVizinhanca();
+    this.vizinhanca = this.montarVizinhanca(this.raioVizinhanca);
+    this.vizinhancaAmpla = this.montarVizinhanca(this.raioAmploDaRegra());
 
     this.contexto = {
       estado: Estado.SOLO,
       x: 0,
       y: 0,
       vizinhanca: this.vizinhanca,
+      vizinhancaAmpla: this.vizinhancaAmpla,
       rng: this.geradorAtual,
     };
   }
@@ -199,8 +208,15 @@ export class Simulacao {
   /* Configuração trocável em tempo de execução                              */
   /* ---------------------------------------------------------------------- */
 
+  /**
+   * Troca a regra em uso.
+   *
+   * Reconstrói a vizinhança ampliada porque o raio dela é declarado PELA REGRA:
+   * cada uma diz de quanto alcance precisa, e a simulação providencia.
+   */
   definirRegra(regra: Regra): void {
     this.regraAtual = regra;
+    this.trocarVizinhanca();
   }
 
   definirVizinhanca(tipo: TipoVizinhanca, raio: Raio): void {
@@ -226,8 +242,9 @@ export class Simulacao {
    * dos números do gerador e, portanto, a reprodutibilidade.
    */
   passo(): Estatisticas {
-    const { largura, altura, atual, proxima, contexto } = this;
-    this.vizinhanca.usarFonte(atual);
+    const { largura, altura, atual, proxima, contexto, vizinhanca, vizinhancaAmpla } = this;
+    vizinhanca.usarFonte(atual);
+    vizinhancaAmpla.usarFonte(atual);
 
     let i = 0;
     for (let y = 0; y < altura; y++) {
@@ -235,7 +252,8 @@ export class Simulacao {
         contexto.estado = atual[i]! as Estado;
         contexto.x = x;
         contexto.y = y;
-        this.vizinhanca.posicionar(x, y);
+        vizinhanca.posicionar(x, y);
+        vizinhancaAmpla.posicionar(x, y);
         proxima[i] = this.regraAtual.aplicar(contexto);
       }
     }
@@ -314,9 +332,14 @@ export class Simulacao {
   /* Auxiliares privados                                                     */
   /* ---------------------------------------------------------------------- */
 
-  private montarVizinhanca(): Vizinhanca {
+  /** Raio pedido pela regra em uso, ou o raio normal se ela não pedir nada. */
+  private raioAmploDaRegra(): number {
+    return this.regraAtual.raioAmplo ?? this.raioVizinhanca;
+  }
+
+  private montarVizinhanca(raio: number): Vizinhanca {
     return new Vizinhanca(
-      criarDeslocamentos(this.tipoVizinhanca, this.raioVizinhanca),
+      criarDeslocamentos(this.tipoVizinhanca, raio),
       criarResolvedor(this.tipoContorno, this.largura, this.altura),
       this.atual,
       // Fora da grade = solo limpo. No Jogo da Vida isso equivale a célula
@@ -325,9 +348,11 @@ export class Simulacao {
     );
   }
 
-  /** Recria o leitor de vizinhança e o reinjeta no contexto reutilizado. */
+  /** Recria os dois leitores de vizinhança e os reinjeta no contexto reutilizado. */
   private trocarVizinhanca(): void {
-    this.vizinhanca = this.montarVizinhanca();
+    this.vizinhanca = this.montarVizinhanca(this.raioVizinhanca);
+    this.vizinhancaAmpla = this.montarVizinhanca(this.raioAmploDaRegra());
     this.contexto.vizinhanca = this.vizinhanca;
+    this.contexto.vizinhancaAmpla = this.vizinhancaAmpla;
   }
 }

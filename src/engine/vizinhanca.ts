@@ -16,7 +16,13 @@ import { Estado } from './estados';
  */
 export type TipoVizinhanca = 'vonNeumann' | 'moore';
 
-/** O trabalho pede raio 1 ou 2; o tipo impede passar valores fora disso. */
+/**
+ * Raio oferecido na interface: 1 ou 2, e o tipo impede escolher outra coisa.
+ *
+ * `criarDeslocamentos` aceita qualquer raio inteiro, porque a vizinhança
+ * AMPLIADA (usada por regras com fontes de longo alcance) precisa de mais. O que
+ * o usuário pode escolher, porém, continua restrito a 1 ou 2.
+ */
 export type Raio = 1 | 2;
 
 /** Deslocamento relativo até um vizinho. */
@@ -38,7 +44,7 @@ export const NOME_VIZINHANCA: Readonly<Record<TipoVizinhanca, string>> = {
  * `Vizinhanca`). Gerar essa lista dentro do laço principal alocaria milhares de
  * objetos por geração e travaria a animação.
  */
-export function criarDeslocamentos(tipo: TipoVizinhanca, raio: Raio): readonly Deslocamento[] {
+export function criarDeslocamentos(tipo: TipoVizinhanca, raio: number): readonly Deslocamento[] {
   const lista: Deslocamento[] = [];
 
   // A varredura é sempre na mesma ordem (linha a linha, da esquerda para a
