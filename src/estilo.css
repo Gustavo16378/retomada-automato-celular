@@ -1,0 +1,289 @@
+/*
+ * Tema escuro.
+ *
+ * As cores da interface são propositalmente neutras (cinzas frios) para não
+ * competir com a paleta da simulação: os únicos elementos realmente coloridos da
+ * página devem ser as células da grade. O verde de destaque é o mesmo verde da
+ * vegetação, o que amarra visualmente o painel ao tema do trabalho.
+ */
+:root {
+  --fundo: #0d0c0b;
+  --superficie: #171614;
+  --superficie-alta: #211f1c;
+  --borda: #302d29;
+  --texto: #e8e4dd;
+  --texto-suave: #a39c91;
+  --destaque: #5c9e3f;
+  --destaque-claro: #77c455;
+  --raio: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  /* A grade é um elemento amplo; evitar rolagem lateral acidental no celular. */
+  overflow-x: hidden;
+}
+
+.aplicacao {
+  display: grid;
+  /* `minmax(0, 1fr)` em vez de `1fr`: sem isso, o canvas poderia empurrar a
+     coluna para além da largura da tela e criar rolagem horizontal. */
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-areas:
+    'cabecalho cabecalho'
+    'palco painel'
+    'rodape rodape';
+  gap: 1rem 1.25rem;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 1.25rem;
+  min-height: 100dvh;
+}
+
+/* ------------------------------------------------------------------ */
+/* Cabeçalho e rodapé                                                  */
+/* ------------------------------------------------------------------ */
+
+.cabecalho {
+  grid-area: cabecalho;
+}
+
+.cabecalho h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: 0.02em;
+}
+
+.subtitulo {
+  margin: 0.15rem 0 0;
+  color: var(--texto-suave);
+  font-size: 0.9rem;
+}
+
+.rodape {
+  grid-area: rodape;
+  color: var(--texto-suave);
+  font-size: 0.8rem;
+  text-align: right;
+}
+
+.rodape a {
+  color: var(--destaque-claro);
+  text-decoration: none;
+}
+
+.rodape a:hover {
+  text-decoration: underline;
+}
+
+/* ------------------------------------------------------------------ */
+/* Palco (canvas)                                                      */
+/* ------------------------------------------------------------------ */
+
+.palco {
+  grid-area: palco;
+  min-width: 0; /* permite ao canvas encolher junto com a coluna */
+}
+
+#tela {
+  display: block;
+  width: 100%;
+  /* A proporção real (largura/altura da grade) é aplicada pelo renderizador,
+     que é quem conhece as dimensões da simulação. Este valor é só o de partida,
+     para não haver salto de layout antes do primeiro desenho. */
+  aspect-ratio: 8 / 5;
+  background: #12100e;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  /* Mantém os pixels quadrados caso o navegador precise reescalar o elemento. */
+  image-rendering: pixelated;
+  /* Sem isso, arrastar o dedo sobre a grade rolaria a página em vez de desenhar. */
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.dica {
+  margin: 0.5rem 0 0;
+  color: var(--texto-suave);
+  font-size: 0.8rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Painel de controles                                                 */
+/* ------------------------------------------------------------------ */
+
+.painel {
+  grid-area: painel;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.grupo {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.grupo h2 {
+  margin: 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--texto-suave);
+  font-weight: 600;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.rotulo {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.82rem;
+  color: var(--texto-suave);
+}
+
+.rotulo output {
+  color: var(--texto);
+  font-variant-numeric: tabular-nums;
+}
+
+.linha-botoes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.linha-campo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.4rem;
+}
+
+button,
+select,
+input[type='text'] {
+  font: inherit;
+  color: var(--texto);
+  background: var(--superficie-alta);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  min-width: 0;
+}
+
+button {
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+button:hover:not(:disabled) {
+  background: #2b2824;
+  border-color: #46413a;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.primario {
+  background: var(--destaque);
+  border-color: var(--destaque);
+  color: #0d0c0b;
+  font-weight: 600;
+}
+
+button.primario:hover:not(:disabled) {
+  background: var(--destaque-claro);
+  border-color: var(--destaque-claro);
+}
+
+:focus-visible {
+  outline: 2px solid var(--destaque-claro);
+  outline-offset: 2px;
+}
+
+input[type='range'] {
+  width: 100%;
+  accent-color: var(--destaque);
+}
+
+/* ------------------------------------------------------------------ */
+/* Indicadores                                                         */
+/* ------------------------------------------------------------------ */
+
+.indicadores {
+  margin: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.indicadores > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.indicadores dt {
+  color: var(--texto-suave);
+  font-size: 0.82rem;
+}
+
+.indicadores dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.nota {
+  margin: 0;
+  color: var(--texto-suave);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+/* ------------------------------------------------------------------ */
+/* Telas estreitas: o painel desce para baixo do canvas                */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 900px) {
+  .aplicacao {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'cabecalho'
+      'palco'
+      'painel'
+      'rodape';
+    padding: 0.9rem;
+  }
+
+  .rodape {
+    text-align: center;
+  }
+}

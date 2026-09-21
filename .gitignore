@@ -1,0 +1,24 @@
+# Dependências
+node_modules
+
+# Build
+dist
+.vite
+
+# Editores
+.vscode
+.idea
+*.swp
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Locais
+*.local
+*.log

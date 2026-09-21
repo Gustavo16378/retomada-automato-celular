@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    /* Alvo moderno: o Vite transpila para o que os navegadores atuais entendem. */
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "useDefineForClassFields": true,
+
+    /* O Vite faz o empacotamento; aqui o tsc serve apenas para checagem de tipos. */
+    "noEmit": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+
+    /* Exigência do trabalho: modo estrito + faxina de código morto. */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* `vite/client` traz as declarações dos imports que o Vite resolve
+       (CSS, imagens, import.meta.env); `node` é necessário para os testes,
+       que leem arquivos do disco. */
+    "types": ["node", "vite/client"]
+  },
+  "include": ["src", "testes", "vite.config.ts", "vitest.config.ts"]
+}

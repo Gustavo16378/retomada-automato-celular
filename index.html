@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#12100e" />
+
+    <title>Retomada — autômato celular de contaminação e recuperação</title>
+    <meta
+      name="description"
+      content="Autômato celular 2D em TypeScript: fábricas contaminam o solo de uma cidade e, quando ela é abandonada, a vegetação retoma o terreno geração após geração."
+    />
+    <meta name="author" content="Gustavo Dev" />
+
+    <!-- Trocar SEU-DOMINIO-AQUI pelo domínio de produção antes do deploy. -->
+    <link rel="canonical" href="https://SEU-DOMINIO-AQUI/" />
+
+    <!-- Open Graph: previsão do card ao compartilhar no LinkedIn / WhatsApp. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:site_name" content="Retomada" />
+    <meta property="og:url" content="https://SEU-DOMINIO-AQUI/" />
+    <meta property="og:title" content="Retomada — autômato celular de contaminação e recuperação" />
+    <meta
+      property="og:description"
+      content="Simulação de contaminação ambiental e recuperação da vegetação com autômatos celulares. TypeScript, Canvas 2D, sem frameworks."
+    />
+    <meta property="og:image" content="https://SEU-DOMINIO-AQUI/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Grade do autômato celular com contaminação avançando sobre a vegetação." />
+
+    <!-- Twitter/X usa as tags acima, mas exige o tipo de card explicitamente. -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Retomada — autômato celular de contaminação e recuperação" />
+    <meta
+      name="twitter:description"
+      content="Simulação de contaminação ambiental e recuperação da vegetação com autômatos celulares. TypeScript, Canvas 2D, sem frameworks."
+    />
+    <meta name="twitter:image" content="https://SEU-DOMINIO-AQUI/og-image.png" />
+
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  </head>
+
+  <body>
+    <div class="aplicacao">
+      <header class="cabecalho">
+        <h1>Retomada</h1>
+        <p class="subtitulo">
+          Autômato celular 2D — contaminação industrial e recuperação da vegetação
+        </p>
+      </header>
+
+      <main class="palco">
+        <canvas id="tela" aria-label="Grade do autômato celular"></canvas>
+        <p class="dica">
+          Clique e arraste sobre a grade para desenhar. Botão direito apaga.
+        </p>
+      </main>
+
+      <aside class="painel" aria-label="Controles da simulação">
+        <section class="grupo">
+          <h2>Execução</h2>
+          <div class="linha-botoes">
+            <button id="btn-executar" type="button" class="primario" aria-pressed="false">
+              ▶ Executar
+            </button>
+            <button id="btn-passo" type="button">⏭ Próxima geração</button>
+          </div>
+          <button id="btn-reiniciar" type="button">↺ Reiniciar</button>
+
+          <label class="campo" for="ctrl-velocidade">
+            <span class="rotulo">Velocidade <output id="val-velocidade">10 ger/s</output></span>
+            <input id="ctrl-velocidade" type="range" min="1" max="60" step="1" value="10" />
+          </label>
+        </section>
+
+        <section class="grupo">
+          <h2>Modelo</h2>
+
+          <label class="campo" for="ctrl-regra">
+            <span class="rotulo">Regra</span>
+            <select id="ctrl-regra">
+              <option value="jogo-da-vida" selected>Jogo da Vida (B3/S23)</option>
+            </select>
+          </label>
+
+          <label class="campo" for="ctrl-vizinhanca">
+            <span class="rotulo">Vizinhança</span>
+            <select id="ctrl-vizinhanca">
+              <option value="moore" selected>Moore (com diagonais)</option>
+              <option value="vonNeumann">Von Neumann (ortogonal)</option>
+            </select>
+          </label>
+
+          <label class="campo" for="ctrl-raio">
+            <span class="rotulo">Raio</span>
+            <select id="ctrl-raio">
+              <option value="1" selected>1</option>
+              <option value="2">2</option>
+            </select>
+          </label>
+
+          <label class="campo" for="ctrl-contorno">
+            <span class="rotulo">Contorno</span>
+            <select id="ctrl-contorno">
+              <option value="periodico" selected>Periódico (toroidal)</option>
+              <option value="fixo">Fixo (fora = solo limpo)</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="grupo">
+          <h2>Condição inicial</h2>
+
+          <label class="campo" for="ctrl-mapa">
+            <span class="rotulo">Mapa</span>
+            <select id="ctrl-mapa">
+              <option value="aleatorio" selected>Sopa aleatória</option>
+              <option value="glider">Planador (glider)</option>
+              <option value="vazio">Vazio</option>
+            </select>
+          </label>
+
+          <label class="campo" for="ctrl-semente">
+            <span class="rotulo">Semente</span>
+            <div class="linha-campo">
+              <input id="ctrl-semente" type="text" value="retomada" spellcheck="false" />
+              <button id="btn-sortear" type="button" title="Sortear uma semente nova">🎲</button>
+            </div>
+          </label>
+        </section>
+
+        <section class="grupo">
+          <h2>Estado</h2>
+          <dl class="indicadores">
+            <div>
+              <dt>Geração</dt>
+              <dd id="stat-geracao">0</dd>
+            </div>
+            <div>
+              <dt>Células vivas</dt>
+              <dd id="stat-vivas">0</dd>
+            </div>
+            <div>
+              <dt>% da grade</dt>
+              <dd id="stat-percentual">0,0 %</dd>
+            </div>
+          </dl>
+        </section>
+
+        <p class="nota">
+          Etapa 2 de 4: engine, renderização e execução passo a passo. As regras do
+          cenário da cidade, o painel completo e a exportação de dados chegam nas
+          próximas etapas.
+        </p>
+      </aside>
+
+      <footer class="rodape">
+        Desenvolvido por <a href="https://gustavodev.dev/" target="_blank" rel="noopener">Gustavo Dev</a>
+      </footer>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
