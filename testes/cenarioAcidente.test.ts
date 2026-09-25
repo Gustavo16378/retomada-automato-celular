@@ -441,13 +441,26 @@ describe('depois do sarcófago', () => {
     expect(anterior).toBe(0);
   });
 
-  it('a cidade e a floresta se recuperam depois do acidente', () => {
-    /*
-     * O ciclo completo, em escala reduzida para a suíte ficar rápida: operação
-     * normal, vazamento, sarcófago e recuperação. É o mesmo roteiro que o script
-     * de calibração mede na grade cheia (`npm run calibrar`).
-     */
+  /*
+   * O ciclo completo, em escala reduzida: operação normal, vazamento, sarcófago
+   * e recuperação. É o mesmo roteiro que o script de calibração mede na grade
+   * cheia (`npm run calibrar`).
+   *
+   * É o teste mais caro da suíte — são quase 500 gerações, e as do vazamento
+   * ainda pagam a varredura ampliada da usina. Por isso ele declara um tempo
+   * limite próprio, bem acima do que precisa: o padrão do Vitest é de 5 s, e um
+   * teste que roda em 4 s numa máquina ociosa falha na mesma máquina ocupada,
+   * sem que nada tenha quebrado de verdade.
+   */
+  it('a cidade e a floresta se recuperam depois do acidente', { timeout: 60_000 }, () => {
     const parametros = criarParametrosCenario();
+    /*
+     * A grade não pode encolher mais do que isto. A recuperação depende de
+     * sobrar mata viva em algum canto quando o sarcófago é fechado, porque a
+     * vegetação só brota ao lado de vegetação já existente; em uma grade menor
+     * a pluma alcança a moldura inteira dentro das 60 gerações de vazamento,
+     * esteriliza tudo e a recuperação fica matematicamente impossível.
+     */
     const sim = new Simulacao({
       largura: 120,
       altura: 80,
@@ -472,7 +485,7 @@ describe('depois do sarcófago', () => {
 
     // Fase 3: sarcófago — a contaminação decai e a mata volta.
     parametros.fase = 'sarcofago';
-    for (let g = 0; g < 400; g++) sim.passo();
+    for (let g = 0; g < 350; g++) sim.passo();
 
     const fim = sim.estatisticas();
     expect(fim.percentualContaminado).toBeLessThan(1);
