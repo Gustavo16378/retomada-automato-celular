@@ -9,9 +9,8 @@ alcança. Construído o sarcófago, a fonte se apaga: a contaminação decai ger
 geração, a vegetação volta a avançar sobre o terreno limpo e, com o tempo, racha o
 concreto das casas.
 
-> **Status:** etapas 1 a 3 concluídas (engine, Jogo da Vida, renderização, cenário do
-> acidente e calibração). O painel completo com todos os parâmetros, o pincel por
-> estado e a exportação de dados são a etapa 4 — ver [Cronograma](#cronograma).
+> **Status:** as quatro etapas do cronograma estão concluídas — engine, renderização,
+> cenário do acidente, painel completo, gráfico ao vivo e exportação em CSV e PNG.
 
 ---
 
@@ -39,10 +38,12 @@ npm run build   # checagem de tipos + build de produção em dist/
 ### Publicação
 
 O projeto é um site estático. No Cloudflare Pages: comando de build `npm run build`,
-diretório de saída `dist`. Antes de publicar, trocar o placeholder
-`https://SEU-DOMINIO-AQUI` no `index.html` (canonical, Open Graph e Twitter Card) pelo
-domínio real e gerar o `og-image.png` (1200x630) — a exportação do canvas em PNG,
-prevista para a etapa 4, serve exatamente para isso.
+diretório de saída `dist`. **Falta apenas um passo antes de publicar:** trocar o
+placeholder `https://SEU-DOMINIO-AQUI` no `index.html` — ele aparece no canonical, no
+Open Graph e no Twitter Card — pelo domínio real.
+
+O `public/og-image.png` (1200x630) já está pronto: é um quadro do próprio simulador,
+capturado no meio do vazamento.
 
 ---
 
@@ -61,14 +62,19 @@ src/
 │   ├── uso.ts          camada estática de uso do solo (rua, casa, prédio, usina)
 │   ├── simulacao.ts    grade em Uint8Array, double buffering, estatísticas
 │   ├── mapas.ts        condições iniciais, incluindo a cidade procedural
+│   ├── csv.ts          histórico em texto, para a planilha do relatório
 │   └── index.ts        superfície pública da engine
 ├── render/     desenho no canvas
 │   ├── paleta.ts       aparências, variação de tom e tabelas de cor em bytes
 │   └── renderizador.ts ImageData + ampliação por drawImage
-├── ui/         controles, laço de animação e pincel
+├── ui/         controles, laço de animação, pincel, gráfico e exportação
 │   ├── dom.ts          acesso tipado a elementos
 │   ├── laco.ts         requestAnimationFrame com acumulador de tempo
 │   ├── controles.ts    único módulo que conhece os ids do HTML
+│   ├── parametros.ts   gera os controles dos parâmetros a partir de uma lista
+│   ├── seletorEstado.ts amostras de cor do pincel, geradas da paleta real
+│   ├── grafico.ts      gráfico das três séries, ao vivo
+│   ├── exportar.ts     download de CSV e PNG
 │   └── pincel.ts       desenho direto na grade com o ponteiro
 ├── estilo.css
 └── main.ts     liga as três camadas (o único ponto com estado global)
@@ -333,6 +339,47 @@ uso, não do estado.
 
 ---
 
+## Interface
+
+Todo o painel é montado a partir de listas declarativas, e não escrito à mão no HTML.
+São catorze parâmetros e nove estados: escrever catorze blocos quase idênticos convida
+a erros de copiar e colar — um `id` repetido, um rótulo que não corresponde ao campo —
+que só aparecem quando alguém arrasta o controle errado. Com a lista, acrescentar um
+parâmetro é acrescentar uma linha, e o TypeScript confere se a chave existe mesmo.
+
+- **Parâmetros ao vivo.** Os catorze limiares e probabilidades têm controle próprio,
+  cada um com a faixa em que ainda produz um cenário reconhecível. Como escrevem
+  direto no objeto compartilhado com a regra, dá para arrastar um controle com a
+  simulação rodando e ver o efeito na geração seguinte.
+- **Pincel por estado.** As amostras são geradas da lista de estados da engine, com as
+  cores reais do mapa; um estado novo apareceria sozinho, com a cor certa. A seleção é
+  marcada por contorno, não só por cor, e cada amostra carrega o nome no rótulo
+  acessível.
+- **Gráfico das três séries**, com linhas tracejadas nas gerações em que o acidente e o
+  sarcófago foram acionados — sem elas, as curvas mostram o que aconteceu mas não
+  quando alguém interveio. Passar o ponteiro sobre o gráfico lê os três valores de
+  qualquer geração.
+- **Exportação.** CSV com uma linha por geração (contagens brutas e percentuais) e PNG
+  da grade ampliado 4x. O nome dos arquivos guarda a semente e a geração, para o
+  experimento poder ser refeito exatamente igual.
+
+### Por que o gráfico não usa as cores do mapa
+
+Seria o esperado, e foi a primeira tentativa. Mas as cores do mapa foram escolhidas
+para células de poucos pixels sobre fundo escuro, e em traços de 2 px elas falham em
+dois pontos que dá para medir: o cinza do concreto tem croma baixo demais e passa a ler
+como linha de grade, e os dois verdes ficam a uma distância perceptual pequena demais
+um do outro — inclusive para quem enxerga todas as cores.
+
+A paleta do gráfico (`#86a02b`, `#0d7d5d`, `#7a8fd4`) mantém a associação — a
+contaminação continua amarelo-esverdeada, a vegetação verde, o concreto frio como
+construção — e passa nos seis testes de banda de luminosidade, croma, separação sob
+daltonismo, separação sob visão normal e contraste contra o fundo escuro do painel.
+De todo modo, a identidade nunca depende só da cor: a legenda está sempre presente e
+traz o valor de cada série em número.
+
+---
+
 ## Calibração
 
 ```bash
@@ -384,6 +431,7 @@ A suíte cobre apenas a engine, e cada arquivo tem um propósito declarado:
 | `vizinhanca.test.ts` | Von Neumann raio 1 tem 4 vizinhos e Moore raio 1 tem 8 (e 12/24 no raio 2); leitura correta nas bordas com cada contorno. |
 | `jogoDaVida.test.ts` | O planador se desloca 1 célula na diagonal a cada 4 gerações, atravessa a borda e volta ao ponto de partida; bloco estável; pisca-pisca com período 2. |
 | `reprodutibilidade.test.ts` | A mesma semente gera exatamente a mesma simulação, inclusive com regra probabilística; `reiniciar` recria o gerador. |
+| `csv.test.ts` | O CSV tem uma linha por geração, as contagens somam o total de células, os percentuais batem com as contagens e saem com vírgula decimal. |
 | `cenarioAcidente.test.ts` | Cada uma das cinco regras isoladamente; o alcance ampliado da usina e o seu limite; a média ponderada equivalente em Von Neumann e Moore; o vento; a absorção; o concreto que só racha depois da evacuação; a contaminação que nunca aumenta sem fonte; o ciclo completo das três fases; e a geração procedural do mapa. |
 | `arquitetura.test.ts` | Nenhum arquivo da engine referencia o navegador ou importa de fora do diretório. |
 
@@ -399,8 +447,9 @@ A suíte cobre apenas a engine, e cada arquivo tem um propósito declarado:
 - [x] **Etapa 3 — cenário do acidente nuclear.** Fases, pressão com fonte de longo
       alcance, vento, absorção, mapa procedural com floresta e cidade, camada de uso
       do solo, paleta com variação de tom e o script de calibração.
-- [ ] **Etapa 4 — interface completa.** Parâmetros editáveis, pincel com seleção de
-      estado, estatísticas ao vivo e exportação em CSV e PNG.
+- [x] **Etapa 4 — interface completa.** Os catorze parâmetros do cenário editáveis ao
+      vivo, pincel com seleção de estado, gráfico das três séries com as marcações de
+      fase, e exportação em CSV e PNG.
 
 ---
 

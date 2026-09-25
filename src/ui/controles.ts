@@ -34,6 +34,8 @@ export interface ManipuladoresControles {
   aoMudarVento: (vento: Vento) => void;
   aoDispararAcidente: () => void;
   aoConstruirSarcofago: () => void;
+  aoExportarCsv: () => void;
+  aoExportarPng: () => void;
 }
 
 /** O que `main.ts` pode pedir ao painel depois de conectado. */
@@ -77,6 +79,8 @@ export function conectarControles(manipuladores: ManipuladoresControles): Contro
   const botaoSortear = elemento<HTMLButtonElement>('btn-sortear');
   const botaoAcidente = elemento<HTMLButtonElement>('btn-acidente');
   const botaoSarcofago = elemento<HTMLButtonElement>('btn-sarcofago');
+  const botaoCsv = elemento<HTMLButtonElement>('btn-csv');
+  const botaoPng = elemento<HTMLButtonElement>('btn-png');
 
   const controleVelocidade = campo<HTMLInputElement>('ctrl-velocidade');
   const controleRegra = campo<HTMLSelectElement>('ctrl-regra');
@@ -100,6 +104,8 @@ export function conectarControles(manipuladores: ManipuladoresControles): Contro
   botaoSortear.addEventListener('click', manipuladores.aoSortearSemente);
   botaoAcidente.addEventListener('click', manipuladores.aoDispararAcidente);
   botaoSarcofago.addEventListener('click', manipuladores.aoConstruirSarcofago);
+  botaoCsv.addEventListener('click', manipuladores.aoExportarCsv);
+  botaoPng.addEventListener('click', manipuladores.aoExportarPng);
 
   // `input` (e não `change`) para o resultado acompanhar o arrastar do controle.
   controleVelocidade.addEventListener('input', () => {

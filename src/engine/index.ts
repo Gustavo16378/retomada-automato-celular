@@ -17,3 +17,4 @@ export * from './regras';
 export * from './uso';
 export * from './simulacao';
 export * from './mapas';
+export * from './csv';

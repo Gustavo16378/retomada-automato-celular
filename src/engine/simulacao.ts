@@ -242,6 +242,11 @@ export class Simulacao {
    * dos números do gerador e, portanto, a reprodutibilidade.
    */
   passo(): Estatisticas {
+    // Garante que a geração 0 entre no histórico mesmo que ninguém tenha pedido
+    // as estatísticas antes do primeiro passo. Sem isto, um programa que carrega
+    // o mapa e já começa a avançar exportaria um CSV começando na geração 1.
+    if (this.registros.length === 0) this.estatisticas();
+
     const { largura, altura, atual, proxima, contexto, vizinhanca, vizinhancaAmpla } = this;
     vizinhanca.usarFonte(atual);
     vizinhancaAmpla.usarFonte(atual);

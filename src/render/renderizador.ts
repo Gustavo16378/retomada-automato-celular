@@ -159,6 +159,37 @@ export class Renderizador {
   }
 
   /**
+   * Exporta a grade como PNG, ampliada por um fator inteiro.
+   *
+   * Não exporta o canvas da tela, e sim o canvas auxiliar — aquele que tem
+   * exatamente uma célula por pixel. É o que garante uma imagem limpa,
+   * independente do tamanho da janela, do zoom do navegador ou da densidade da
+   * tela no momento em que o botão foi clicado.
+   *
+   * A ampliação por número INTEIRO, com suavização desligada, mantém todas as
+   * células do mesmo tamanho: em uma escala fracionária, algumas linhas sairiam
+   * um pixel mais largas que as outras.
+   */
+  paraPng(escala = 4): Promise<Blob> {
+    const destino = document.createElement('canvas');
+    destino.width = this.largura * escala;
+    destino.height = this.altura * escala;
+
+    const contexto = destino.getContext('2d');
+    if (contexto === null) throw new Error('Não foi possível criar o canvas de exportação.');
+
+    contexto.imageSmoothingEnabled = false;
+    contexto.drawImage(this.canvasAuxiliar, 0, 0, destino.width, destino.height);
+
+    return new Promise((resolver, rejeitar) => {
+      destino.toBlob((blob) => {
+        if (blob === null) rejeitar(new Error('O navegador não gerou a imagem.'));
+        else resolver(blob);
+      }, 'image/png');
+    });
+  }
+
+  /**
    * Converte uma coordenada de ponteiro (mouse ou toque) na célula correspondente.
    *
    * É o caminho inverso do desenho, e por isso mora aqui: o renderizador é o

@@ -2,21 +2,34 @@ import './estilo.css';
 
 import {
   aplicarMapa,
+  criarCamadaDeUso,
   criarParametrosCenario,
   criarRegraCenario,
   criarRegraJogoDaVida,
-  criarCamadaDeUso,
   Estado,
+  montarCsv,
   sementeDeTexto,
   Simulacao,
-  VIVA,
   type CamadaDeUso,
+  type Fase,
   type IdMapa,
   type IdRegra,
   type Regra,
 } from './engine';
 import { Renderizador } from './render';
-import { conectarControles, conectarPincel, criarLaco, elemento } from './ui';
+import {
+  baixarArquivo,
+  baixarTexto,
+  conectarControles,
+  conectarParametros,
+  conectarPincel,
+  conectarSeletorDeEstado,
+  criarGrafico,
+  criarLaco,
+  elemento,
+  nomeDoExperimento,
+  type MarcoGrafico,
+} from './ui';
 
 /**
  * Ponto de encontro das três camadas.
@@ -38,12 +51,15 @@ const LARGURA = 200;
 const ALTURA = 125;
 const SEMENTE_PADRAO = 'retomada';
 const VELOCIDADE_PADRAO = 10;
+/** Ampliação da imagem exportada: 200x125 vira 800x500. */
+const ESCALA_DO_PNG = 4;
 
 /*
  * Os parâmetros do cenário vivem aqui e são COMPARTILHADOS com a regra: ela os
  * captura no fechamento. Mexer em um controle do painel altera este objeto, e o
  * efeito vale já na geração seguinte — sem reconstruir a regra nem reiniciar a
- * simulação. É o que faz os botões de fase agirem no meio da execução.
+ * simulação. É o que faz os botões de fase e os controles de parâmetro agirem no
+ * meio da execução.
  */
 const parametros = criarParametrosCenario();
 
@@ -74,13 +90,28 @@ const simulacao = new Simulacao({
  */
 let usos: CamadaDeUso = criarCamadaDeUso(simulacao.totalCelulas);
 
+/**
+ * Em que geração cada mudança de fase aconteceu.
+ *
+ * Serve ao gráfico: sem essas marcas, as curvas mostram o QUE aconteceu mas não
+ * QUANDO alguém interveio, que é metade da leitura.
+ */
+let marcos: MarcoGrafico[] = [];
+
 const renderizador = new Renderizador(elemento<HTMLCanvasElement>('tela'), LARGURA, ALTURA);
+
+const grafico = criarGrafico({
+  canvas: elemento<HTMLCanvasElement>('grafico'),
+  legenda: elemento('legenda-grafico'),
+});
 
 const laco = criarLaco({
   aoPassar: () => simulacao.passo(),
   aoDesenhar: () => atualizarTela(),
   velocidade: VELOCIDADE_PADRAO,
 });
+
+const pincel = conectarSeletorDeEstado(elemento('seletor-estado'), Estado.ARVORE);
 
 const controles = conectarControles({
   aoAlternarExecucao: () => {
@@ -134,29 +165,51 @@ const controles = conectarControles({
     parametros.vento = vento;
   },
 
-  aoDispararAcidente: () => {
-    parametros.fase = 'acidente';
-    atualizarTela();
+  aoDispararAcidente: () => mudarFase('acidente', '☢ acidente'),
+
+  aoConstruirSarcofago: () => mudarFase('sarcofago', '🧱 sarcófago'),
+
+  aoExportarCsv: () => {
+    baixarTexto(
+      nomeDoExperimento('historico', controles.lerSemente(), simulacao.geracao, 'csv'),
+      montarCsv(simulacao.historico),
+      'text/csv',
+    );
   },
 
-  aoConstruirSarcofago: () => {
-    parametros.fase = 'sarcofago';
-    atualizarTela();
+  aoExportarPng: () => {
+    void renderizador.paraPng(ESCALA_DO_PNG).then((imagem) => {
+      baixarArquivo(
+        nomeDoExperimento('mapa', controles.lerSemente(), simulacao.geracao, 'png'),
+        imagem,
+      );
+    });
   },
+});
+
+conectarParametros({
+  container: elemento('painel-parametros'),
+  parametros,
+  aoMudar: () => atualizarTela(),
 });
 
 conectarPincel({
   canvas: elemento<HTMLCanvasElement>('tela'),
   localizar: (x, y) => renderizador.celulaEm(x, y),
   pintar: (x, y, apagar) => {
-    // O pincel com seleção de estado chega na etapa 4; por ora ele pinta
-    // vegetação e apaga para solo limpo, o que já serve às duas regras.
-    simulacao.definirCelula(x, y, apagar ? Estado.SOLO : VIVA);
+    simulacao.definirCelula(x, y, apagar ? Estado.SOLO : pincel.selecionado());
     // Redesenhar a cada célula pintada mantém o traço colado no ponteiro; como
     // só acontece durante o arrasto, o custo é irrelevante.
     atualizarTela();
   },
 });
+
+/** Muda a fase do cenário e anota a geração em que isso aconteceu. */
+function mudarFase(fase: Fase, rotulo: string): void {
+  parametros.fase = fase;
+  marcos = [...marcos, { geracao: simulacao.geracao, rotulo }];
+  atualizarTela();
+}
 
 /**
  * Redesenha a grade e atualiza os números do painel.
@@ -169,13 +222,20 @@ function atualizarTela(): void {
   controles.atualizarEstatisticas(simulacao.estatisticas());
   controles.definirRodando(laco.rodando);
   controles.definirFase(parametros.fase, simulacao.regra.id === 'acidente');
+
+  grafico.desenhar(simulacao.historico, marcos);
+  elemento('marcos-grafico').textContent =
+    marcos.length === 0
+      ? 'As linhas tracejadas marcam as mudanças de fase.'
+      : marcos.map((m) => `${m.rotulo} na geração ${m.geracao}`).join(' · ');
 }
 
 /** Recarrega o mapa inicial com a semente que estiver no painel. */
 function recarregarMapa(mapa: IdMapa = controles.lerMapa()): void {
   // Recarregar um mapa é recomeçar o experimento do zero: a usina volta a operar
-  // normalmente e a cidade, a ser habitada.
+  // normalmente, a cidade a ser habitada e o gráfico a ficar em branco.
   parametros.fase = 'normal';
+  marcos = [];
   usos = aplicarMapa(simulacao, mapa, sementeDeTexto(controles.lerSemente()));
   atualizarTela();
 }

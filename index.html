@@ -54,7 +54,7 @@
       <main class="palco">
         <canvas id="tela" aria-label="Grade do autômato celular"></canvas>
         <p class="dica">
-          Clique e arraste sobre a grade para desenhar. Botão direito apaga.
+          Clique e arraste sobre a grade para pintar o estado escolhido. Botão direito apaga.
         </p>
       </main>
 
@@ -73,6 +73,60 @@
             <span class="rotulo">Velocidade <output id="val-velocidade">10 ger/s</output></span>
             <input id="ctrl-velocidade" type="range" min="1" max="60" step="1" value="10" />
           </label>
+        </section>
+
+        <section class="grupo">
+          <h2>Cenário</h2>
+
+          <p class="fase">
+            Fase atual: <strong id="stat-fase" data-fase="normal">Operação normal</strong>
+          </p>
+
+          <button id="btn-acidente" type="button" class="destaque">☢ Acidente</button>
+          <button id="btn-sarcofago" type="button" disabled>🧱 Construir sarcófago</button>
+
+          <label class="campo" for="ctrl-vento">
+            <span class="rotulo">Vento</span>
+            <select id="ctrl-vento">
+              <option value="nenhum" selected>Sem vento</option>
+              <option value="norte">Norte (empurra para o sul)</option>
+              <option value="sul">Sul (empurra para o norte)</option>
+              <option value="leste">Leste (empurra para o oeste)</option>
+              <option value="oeste">Oeste (empurra para o leste)</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="grupo">
+          <h2>Estado</h2>
+          <dl class="indicadores">
+            <div>
+              <dt>Geração</dt>
+              <dd id="stat-geracao">0</dd>
+            </div>
+            <div>
+              <dt>Contaminado</dt>
+              <dd id="stat-contaminado">0,0 %</dd>
+            </div>
+            <div>
+              <dt>Vegetação</dt>
+              <dd id="stat-vegetacao">0,0 %</dd>
+            </div>
+            <div>
+              <dt>Concreto</dt>
+              <dd id="stat-concreto">0,0 %</dd>
+            </div>
+          </dl>
+
+          <canvas id="grafico" aria-label="Evolução das três séries ao longo das gerações"></canvas>
+          <div id="legenda-grafico" class="legenda"></div>
+          <p id="marcos-grafico" class="nota"></p>
+        </section>
+
+        <section class="grupo">
+          <h2>Pincel</h2>
+          <div id="seletor-estado" class="amostras" role="group" aria-label="Estado a pintar"></div>
+          <p class="nota">Botão esquerdo pinta o estado escolhido; botão direito apaga para solo limpo.</p>
         </section>
 
         <section class="grupo">
@@ -114,28 +168,6 @@
         </section>
 
         <section class="grupo">
-          <h2>Cenário</h2>
-
-          <p class="fase">
-            Fase atual: <strong id="stat-fase" data-fase="normal">Operação normal</strong>
-          </p>
-
-          <button id="btn-acidente" type="button" class="destaque">☢ Acidente</button>
-          <button id="btn-sarcofago" type="button" disabled>🧱 Construir sarcófago</button>
-
-          <label class="campo" for="ctrl-vento">
-            <span class="rotulo">Vento</span>
-            <select id="ctrl-vento">
-              <option value="nenhum" selected>Sem vento</option>
-              <option value="norte">Norte (empurra para o sul)</option>
-              <option value="sul">Sul (empurra para o norte)</option>
-              <option value="leste">Leste (empurra para o oeste)</option>
-              <option value="oeste">Oeste (empurra para o leste)</option>
-            </select>
-          </label>
-        </section>
-
-        <section class="grupo">
           <h2>Condição inicial</h2>
 
           <label class="campo" for="ctrl-mapa">
@@ -157,32 +189,28 @@
           </label>
         </section>
 
-        <section class="grupo">
-          <h2>Estado</h2>
-          <dl class="indicadores">
-            <div>
-              <dt>Geração</dt>
-              <dd id="stat-geracao">0</dd>
-            </div>
-            <div>
-              <dt>Contaminado</dt>
-              <dd id="stat-contaminado">0,0 %</dd>
-            </div>
-            <div>
-              <dt>Vegetação</dt>
-              <dd id="stat-vegetacao">0,0 %</dd>
-            </div>
-            <div>
-              <dt>Concreto</dt>
-              <dd id="stat-concreto">0,0 %</dd>
-            </div>
-          </dl>
-        </section>
+        <details class="grupo dobravel">
+          <summary><h2>Parâmetros do cenário</h2></summary>
+          <!-- Os controles deste bloco são gerados por `ui/parametros.ts` a
+               partir da lista declarativa que também documenta cada faixa. -->
+          <div id="painel-parametros" class="conteudo-dobravel"></div>
+        </details>
 
-        <p class="nota">
-          Etapa 3 de 4: cenário do acidente nuclear. O painel completo com todos os
-          parâmetros, o pincel por estado e a exportação em CSV e PNG chegam na etapa 4.
-        </p>
+        <section class="grupo">
+          <h2>Exportar</h2>
+          <div class="linha-botoes">
+            <button id="btn-csv" type="button" title="Histórico de todas as gerações">
+              ⤓ CSV
+            </button>
+            <button id="btn-png" type="button" title="Imagem da grade, ampliada 4x">
+              ⤓ PNG
+            </button>
+          </div>
+          <p class="nota">
+            O CSV traz uma linha por geração, com as contagens e os percentuais. O nome dos
+            arquivos guarda a semente e a geração, para o experimento poder ser refeito.
+          </p>
+        </section>
       </aside>
 
       <footer class="rodape">

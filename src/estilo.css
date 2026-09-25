@@ -269,6 +269,34 @@ input[type='range'] {
 }
 
 /* ------------------------------------------------------------------ */
+/* Painel alto: rola sozinho, sem levar o mapa junto                   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Com todos os parâmetros abertos, o painel fica mais alto que a janela. Se ele
+ * empurrasse a página inteira, rolar até o último controle tiraria a grade de
+ * vista — e a grade é o que se está tentando observar enquanto se mexe nos
+ * controles. Grudando o painel e dando a ele a própria barra de rolagem, o mapa
+ * fica parado.
+ *
+ * Só no desktop: no celular o painel está EMBAIXO do mapa, e ali a rolagem da
+ * página é justamente o que se quer.
+ */
+@media (min-width: 901px) {
+  .painel {
+    position: sticky;
+    top: 1.25rem;
+    align-self: start;
+    max-height: calc(100dvh - 2.5rem);
+    overflow-y: auto;
+    /* Espaço para a barra de rolagem não encostar nos controles. */
+    padding-right: 0.35rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--borda) transparent;
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Telas estreitas: o painel desce para baixo do canvas                */
 /* ------------------------------------------------------------------ */
 
@@ -323,4 +351,144 @@ button.destaque:hover:not(:disabled) {
 
 .fase strong[data-fase='sarcofago'] {
   color: var(--destaque-claro);
+}
+
+/* ------------------------------------------------------------------ */
+/* Bloco dobrável (parâmetros do cenário)                              */
+/* ------------------------------------------------------------------ */
+
+.dobravel summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* O triângulo padrão do <summary> varia muito entre navegadores; desenhamos
+   um marcador próprio para o painel ficar igual em todos. */
+.dobravel summary::-webkit-details-marker {
+  display: none;
+}
+
+.dobravel summary::before {
+  content: '▸';
+  color: var(--texto-suave);
+  font-size: 0.7rem;
+  transition: transform 120ms ease;
+}
+
+.dobravel[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.conteudo-dobravel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.6rem;
+}
+
+.subgrupo {
+  margin: 0.35rem 0 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+  font-weight: 600;
+  border-top: 1px solid var(--borda);
+  padding-top: 0.55rem;
+}
+
+.subgrupo:first-child {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Seletor de estado do pincel                                         */
+/* ------------------------------------------------------------------ */
+
+.amostras {
+  display: grid;
+  /* Nove colunas fixas: são exatamente os nove estados, e deixá-los em uma
+     linha só mantém a leitura de escala — solo, contaminação crescente,
+     construções, vegetação crescente — que a ordem do enum já carrega. */
+  grid-template-columns: repeat(9, 1fr);
+  gap: 0.3rem;
+}
+
+.amostra {
+  aspect-ratio: 1;
+  padding: 0;
+  border-radius: 6px;
+  background: var(--cor-amostra);
+  border: 2px solid transparent;
+  /* A cor sozinha não distingue os três verdes para todo mundo; o contorno
+     marca a seleção por forma, e o rótulo acessível carrega o nome. */
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 35%);
+}
+
+.amostra:hover:not(:disabled) {
+  background: var(--cor-amostra);
+  border-color: #5f5850;
+}
+
+.amostra.ativo {
+  border-color: var(--texto);
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 35%),
+    0 0 0 2px rgb(0 0 0 / 45%);
+}
+
+/* ------------------------------------------------------------------ */
+/* Gráfico das séries                                                  */
+/* ------------------------------------------------------------------ */
+
+#grafico {
+  display: block;
+  width: 100%;
+  height: 110px;
+  margin-top: 0.2rem;
+  background: #100f0d;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  touch-action: none;
+}
+
+.legenda {
+  display: grid;
+  gap: 0.15rem;
+  margin-top: 0.4rem;
+}
+
+.geracao-legenda {
+  font-size: 0.72rem;
+  color: var(--texto-suave);
+  font-variant-numeric: tabular-nums;
+}
+
+.serie {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+}
+
+.amostra-serie {
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--cor-serie);
+}
+
+.nome-serie {
+  color: var(--texto-suave);
+}
+
+.valor-serie {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
