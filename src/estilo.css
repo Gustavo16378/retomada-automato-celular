@@ -492,3 +492,33 @@ button.destaque:hover:not(:disabled) {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
+
+/* ------------------------------------------------------------------ */
+/* Modo de captura (?og=1)                                             */
+/* ------------------------------------------------------------------ */
+
+.modo-captura {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  min-height: 100dvh;
+  padding: 1.5rem;
+}
+
+.captura-previa {
+  /* A prévia é mostrada reduzida, mas o arquivo salvo tem sempre 1200x630. */
+  width: min(100%, 900px);
+  height: auto;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  image-rendering: pixelated;
+}
+
+.captura-aviso {
+  margin: 0;
+  color: var(--texto-suave);
+  font-size: 0.85rem;
+  text-align: center;
+}

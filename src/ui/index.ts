@@ -7,3 +7,4 @@ export * from './parametros';
 export * from './seletorEstado';
 export * from './grafico';
 export * from './exportar';
+export * from './capturaOg';

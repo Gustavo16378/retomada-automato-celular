@@ -1,9 +1,24 @@
 {
   "name": "retomada",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Autômato celular 2D: contaminação industrial e recuperação da vegetação",
+  "description": "Autômato celular 2D em TypeScript: acidente nuclear, contaminação e retomada da natureza",
+  "keywords": [
+    "automato-celular",
+    "cellular-automata",
+    "simulacao",
+    "typescript",
+    "canvas",
+    "vite"
+  ],
+  "homepage": "https://retomada-automato-celular.pages.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Gustavo16378/retomada-automato-celular.git"
+  },
+  "author": "Gustavo Barbosa Lima",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

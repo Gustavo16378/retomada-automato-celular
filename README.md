@@ -1,16 +1,28 @@
 # Retomada
 
-Autômato celular 2D que simula um **acidente nuclear e a retomada da natureza**,
-rodando inteiramente no navegador.
+**Autômato celular 2D que simula um acidente nuclear e a retomada da natureza**, rodando
+inteiramente no navegador, sem framework nenhum.
 
-Uma cidade cercada de floresta convive com a usina construída na borda dela. Quando
-o reator falha, a contaminação se espalha pelas ruas e pela mata, matando tudo o que
+🔗 **[retomada-automato-celular.pages.dev](https://retomada-automato-celular.pages.dev)**
+
+Uma cidade cercada de floresta convive com a usina construída na borda dela. Quando o
+reator falha, a contaminação se espalha pelas ruas e pela mata, matando tudo o que
 alcança. Construído o sarcófago, a fonte se apaga: a contaminação decai geração após
 geração, a vegetação volta a avançar sobre o terreno limpo e, com o tempo, racha o
-concreto das casas.
+concreto das casas abandonadas.
 
-> **Status:** as quatro etapas do cronograma estão concluídas — engine, renderização,
-> cenário do acidente, painel completo, gráfico ao vivo e exportação em CSV e PNG.
+## A inspiração
+
+A imagem de partida é a zona de exclusão de Chernobyl. Décadas depois do acidente, o que
+se vê nas fotos de Pripyat não é um deserto: é uma floresta comendo uma cidade — árvores
+nascendo dentro de apartamentos, asfalto rachado por raízes, animais circulando entre
+prédios. A ausência de gente acabou sendo, para a vegetação, mais benéfica do que a
+radiação foi prejudicial.
+
+É esse contraste que o modelo tenta capturar: **a mesma ausência humana que veio da
+catástrofe é a condição da recuperação**. Enquanto a cidade era habitada, o mato era
+arrancado e as rachaduras, tapadas; é só depois da evacuação que o concreto começa a se
+desfazer.
 
 ---
 
@@ -35,21 +47,61 @@ npm run build   # checagem de tipos + build de produção em dist/
 | `npm run preview` | Serve o build de produção localmente. |
 | `npm run calibrar` | Roda o cenário sem interface e imprime os indicadores. |
 
-### Publicação
+O deploy é estático (Cloudflare Pages): comando de build `npm run build`, diretório de
+saída `dist`.
 
-O projeto é um site estático. No Cloudflare Pages: comando de build `npm run build`,
-diretório de saída `dist`. **Falta apenas um passo antes de publicar:** trocar o
-placeholder `https://SEU-DOMINIO-AQUI` no `index.html` — ele aparece no canonical, no
-Open Graph e no Twitter Card — pelo domínio real.
+---
 
-O `public/og-image.png` (1200x630) já está pronto: é um quadro do próprio simulador,
-capturado no meio do vazamento.
+## Como usar
+
+O cenário tem **três fases**, acionadas pelos botões do painel:
+
+1. **Operação normal** — a usina não emite, a cidade é habitada, a paisagem é mantida.
+2. **☢ Acidente** — o reator passa a vazar. A contaminação avança pelas ruas e pela mata.
+3. **🧱 Construir sarcófago** — a fonte se apaga. Começa a recuperação.
+
+`↺ Reiniciar` volta à fase 1 com o mesmo mapa. Os demais controles trocam a vizinhança, o
+raio, a condição de contorno, o vento e o mapa inicial; o bloco *Parâmetros do cenário*
+abre os catorze limiares e probabilidades, ajustáveis com a simulação em movimento. O
+pincel pinta qualquer estado direto na grade.
+
+### Semente e reprodutibilidade
+
+Nada na simulação usa `Math.random()`. Todo sorteio vem de um gerador pseudoaleatório com
+semente (mulberry32), e a varredura da grade é sempre na mesma ordem. Consequência
+prática: **a mesma semente produz exatamente a mesma simulação**, do mapa gerado ao
+último pixel, quantas vezes for executada.
+
+É isso que dá validade a qualquer comparação. Ao trocar Moore por Von Neumann mantendo a
+semente, a diferença observada vem da vizinhança — não do acaso. O campo *Semente* aceita
+texto (`cidade-02`) ou número; o botão 🎲 sorteia um novo.
+
+### Exportação
+
+| Botão | Arquivo | Conteúdo |
+| --- | --- | --- |
+| `⤓ CSV` | `retomada-historico-<semente>-g<geração>.csv` | uma linha por geração, com a contagem bruta de cada um dos nove estados, o total e os três percentuais |
+| `⤓ PNG` | `retomada-mapa-<semente>-g<geração>.png` | a grade no instante do clique, ampliada 4x (800x500) |
+
+O nome dos arquivos guarda a semente e a geração de propósito: é o que permite refazer
+exatamente o experimento que gerou aquele dado. O CSV usa ponto e vírgula como separador
+e vírgula decimal, com marca UTF-8 no início — abre direto no Excel em português, com
+duplo clique.
+
+O PNG não é uma captura de tela: é gerado a partir do canvas interno de uma célula por
+pixel, então a imagem sai idêntica independentemente do tamanho da janela, do zoom do
+navegador ou da densidade da tela.
+
+### Imagem de compartilhamento
+
+`?og=1` na URL abre um modo à parte que monta o mapa padrão, dispara o acidente, roda um
+número fixo de gerações e gera a imagem de 1200x630 usada no Open Graph — sempre a mesma,
+porque a semente e o número de gerações são fixos. Sem o parâmetro, nada disso é
+executado.
 
 ---
 
 ## Arquitetura
-
-A separação em três camadas é a decisão estrutural central do projeto:
 
 ```
 src/
@@ -75,50 +127,57 @@ src/
 │   ├── seletorEstado.ts amostras de cor do pincel, geradas da paleta real
 │   ├── grafico.ts      gráfico das três séries, ao vivo
 │   ├── exportar.ts     download de CSV e PNG
+│   ├── capturaOg.ts    modo ?og=1, que gera a imagem de compartilhamento
 │   └── pincel.ts       desenho direto na grade com o ponteiro
 ├── estilo.css
 └── main.ts     liga as três camadas (o único ponto com estado global)
 ```
 
-**Por que separar assim?**
+### Por que essa separação
 
-1. **A engine é testável sem navegador.** Toda a suíte roda no Node, em poucos
-   segundos, sem jsdom nem canvas simulado.
-2. **A dependência é de mão única:** `ui` e `render` conhecem a `engine`; a `engine`
-   não conhece ninguém. O script de calibração é a prova prática: é a mesma simulação
-   do canvas rodando em modo texto, sem nenhuma adaptação.
-3. **A regra vira dado, não código espalhado.** Uma regra é um objeto com um método
-   `aplicar(contexto)`; acrescentar uma nova não muda nenhum tipo existente.
+**A engine não pode tocar no navegador.** É a regra central do projeto, e ela paga três
+dividendos concretos:
 
-Essa fronteira não fica só na documentação: `testes/arquitetura.test.ts` lê os
-arquivos de `src/engine` e **falha** se algum deles mencionar `document`, `window`,
-`ImageData` ou importar algo de fora do diretório.
+1. **Testabilidade.** A suíte inteira roda no Node, sem jsdom e sem canvas simulado. Os
+   testes cobrem a simulação de verdade, não uma imitação dela.
+2. **A simulação roda fora da página.** `npm run calibrar` executa o mesmo código do
+   canvas em modo texto, imprimindo indicadores a cada N gerações. Foi assim que os
+   parâmetros foram calibrados — e é a prova prática de que a separação é real.
+3. **A dependência é de mão única.** `ui` e `render` conhecem a `engine`; a `engine` não
+   conhece ninguém. Trocar o canvas por WebGL, ou a página por um script de linha de
+   comando, não encosta na simulação.
+
+A fronteira não fica só na documentação: `testes/arquitetura.test.ts` lê os arquivos de
+`src/engine` e **falha** se algum deles mencionar `document`, `window`, `ImageData` ou
+importar algo de fora do diretório.
+
+Um exemplo de como a regra orienta o desenho: a exportação em CSV é dividida em dois.
+Montar o *texto* do arquivo é transformação de dados e mora em `engine/csv.ts`, com
+testes; criar o blob e disparar o download é conversa com o navegador e mora em
+`ui/exportar.ts`.
 
 ### Decisões de implementação que valem destaque
 
-- **Grade em `Uint8Array`.** São 9 estados, então cada célula cabe em um byte; uma
-  grade de 200x125 ocupa 25 KB, e as duas (atual e próxima) cabem no cache do
-  processador.
-- **Double buffering.** A regra lê da grade atual e a simulação escreve na próxima;
-  no fim da geração as duas trocam de papel. É o que garante a atualização
-  *síncrona* exigida por um autômato celular — nenhuma célula já recalculada
-  influencia as que ainda serão. A troca é O(1), sem cópia de memória.
+- **Grade em `Uint8Array`.** São 9 estados, então cada célula cabe em um byte; uma grade
+  de 200x125 ocupa 25 KB, e as duas (atual e próxima) cabem no cache do processador.
+- **Double buffering.** A regra lê da grade atual e a simulação escreve na próxima; no
+  fim da geração as duas trocam de papel. É o que garante a atualização *síncrona*
+  exigida por um autômato celular — nenhuma célula já recalculada influencia as que ainda
+  serão. A troca é O(1), sem cópia de memória.
 - **Zero alocação no laço principal.** O contexto passado para a regra, o leitor de
-  vizinhança e até as funções auxiliares da regra são criados uma única vez.
-  Alocá-los por célula significaria 25 mil objetos por geração, a até 60 gerações por
-  segundo.
-- **A regra declara o alcance de que precisa.** O contrato `Regra` tem um campo
-  opcional `raioAmplo`; quem o declara recebe da simulação uma segunda vizinhança,
-  maior, já posicionada. É assim que a usina alcança muito mais longe que uma célula
-  de solo, sem que a engine precise saber o que é uma usina.
-- **Renderização por tabela.** O laço que preenche os pixels não tem nenhum `if`,
-  nenhuma conta de cor e nenhuma chamada de função — só três indexações. Tanto a
-  escolha da aparência (estado + uso do solo) quanto a variação de tom estão
-  pré-resolvidas em tabelas montadas na inicialização.
-- **Laço com acumulador de tempo.** `requestAnimationFrame` desenha uma vez por
-  quadro e o acumulador decide quantas gerações cabem no intervalo, com teto por
-  quadro — a velocidade em gerações por segundo é respeitada tanto em 60 Hz quanto
-  em 144 Hz, e a página não trava ao voltar de segundo plano.
+  vizinhança e as funções auxiliares são criados uma única vez. Alocá-los por célula
+  significaria 25 mil objetos por geração, a até 60 gerações por segundo.
+- **A regra declara o alcance de que precisa.** O contrato `Regra` tem um campo opcional
+  `raioAmplo`; quem o declara recebe da simulação uma segunda vizinhança, maior, já
+  posicionada. É assim que a usina alcança muito mais longe que uma célula de solo, sem
+  que a engine precise saber o que é uma usina.
+- **Renderização por tabela.** O laço que preenche os pixels não tem nenhum `if`, nenhuma
+  conta de cor e nenhuma chamada de função — só três indexações. A escolha da aparência
+  (estado + uso do solo) e a variação de tom estão pré-resolvidas em tabelas montadas na
+  inicialização.
+- **Laço com acumulador de tempo.** `requestAnimationFrame` desenha uma vez por quadro e
+  o acumulador decide quantas gerações cabem no intervalo, com teto por quadro — a
+  velocidade em gerações por segundo é respeitada tanto em 60 Hz quanto em 144 Hz.
 
 ---
 
@@ -131,53 +190,33 @@ arquivos de `src/engine` e **falha** se algum deles mencionar `document`, `windo
 | 2 | Contaminação moderada | verde-limão |
 | 3 | Contaminação grave | chartreuse radioativo |
 | 4 | Usina nuclear | ciano |
-| 5 | Concreto | cinza (variável, ver abaixo) |
+| 5 | Concreto | cinza (rua, telhado ou prédio, conforme o uso do solo) |
 | 6 | Grama | verde claro |
 | 7 | Arbusto | verde médio |
 | 8 | Árvore | verde escuro |
 
-A ordem dos valores não é arbitrária: 0..3 formam a escala de contaminação e 6..8 a
-escala de vegetação, o que transforma "subir um nível" em uma soma em vez de uma
-tabela de transição.
+A ordem não é arbitrária: 0..3 formam a escala de contaminação e 6..8 a de vegetação, o
+que transforma "subir um nível" em uma soma em vez de uma tabela de transição.
 
-### A camada de uso do solo
-
-Para as REGRAS, uma rua, um telhado e a parede de um prédio são a mesma coisa; para
-os OLHOS, não. Por isso existe uma camada **estática** paralela à grade, que guarda o
-que cada célula era quando o mapa foi gerado: `NATUREZA`, `RUA`, `CASA_A/B/C`,
-`PREDIO`, `USINA`.
-
-Ela **não participa de nenhuma regra** — e isso é garantido pela estrutura, não pela
-disciplina: a camada nem chega à simulação. `aplicarMapa` a devolve, o `main.ts` a
-guarda e entrega direto ao renderizador.
-
-As três variantes de casa existem porque a variação de tom é por CÉLULA: com uma
-variante só, um telhado de 3x3 sairia salpicado. A variante é sorteada uma vez por
-casa e pinta o telhado inteiro de um tom só.
+**A camada de uso do solo.** Para as regras, uma rua, um telhado e a parede de um prédio
+são o mesmo `CONCRETO`; para os olhos, não. Uma camada **estática** paralela à grade
+guarda o que cada célula era quando o mapa foi gerado (`RUA`, `CASA_A/B/C`, `PREDIO`,
+`USINA`), e só o renderizador a lê. Ela nem chega à simulação: `aplicarMapa` a devolve e o
+`main.ts` a entrega direto ao renderizador, de modo que nenhuma regra consiga alcançá-la.
 
 ---
 
 ## As regras
 
-### Jogo da Vida (B3/S23)
-
-A regra clássica de Conway, sobre o mesmo alfabeto de estados: **viva** é a grama e
-**morta** é o solo limpo. Está aqui por dois motivos: é o autômato celular de
-referência, que qualquer leitor reconhece, e funciona como teste de integração da
-engine inteira — se o planador se desloca corretamente, então vizinhança, contorno,
-atualização síncrona e ordem de varredura estão todos corretos.
-
-### Cenário do acidente nuclear
-
-O cenário tem **três fases**, e quase tudo deriva delas:
+### As três fases
 
 | Fase | Usina emite | Contaminação avança | Vegetação morre com | Concreto racha | Natureza recoloniza |
 | --- | --- | --- | --- | --- | --- |
-| Operação normal | não | — | — | não (cidade habitada) | não (paisagem mantida) |
-| Vazamento | sim | sim | pressão ≥ 0,08 (precipitação) | sim (evacuada) | não (a precipitação mata os brotos) |
-| Sarcófago | não | não (só decai) | pressão ≥ 0,8 (só o resíduo) | sim | sim |
+| Operação normal | não | — | — | não | não |
+| Vazamento | sim | sim | pressão ≥ 0,08 (precipitação) | sim | não |
+| Sarcófago | não | não, só decai | pressão ≥ 0,80 (só resíduo) | sim | sim |
 
-#### Pressão
+### Pressão
 
 ```
 pressão = Σ(peso_vizinho × nível_vizinho) / Σ(peso_vizinho)
@@ -185,198 +224,104 @@ pressão = Σ(peso_vizinho × nível_vizinho) / Σ(peso_vizinho)
         − absorção × nº de vizinhos arbusto/árvore
 ```
 
-Dividir pela **soma dos pesos** — e não pela quantidade de vizinhos — é o que mantém
-os mesmos limiares válidos em Von Neumann, em Moore e com qualquer vento: o resultado
-continua sendo uma média na escala 0..3.
+Níveis: solo = 0, contaminação = 1 a 3, e **0 para concreto, vegetação e usina**. A usina
+entra só pelo segundo termo, calculado sobre um raio de 4 células — é o que cria o halo
+instantâneo em volta do reator. Dividir pela **soma dos pesos**, e não pela quantidade de
+vizinhos, é o que mantém os mesmos limiares válidos em Von Neumann, em Moore e com
+qualquer vento.
 
-A usina contribui **zero** na vizinhança imediata e entra só pelo segundo termo,
-calculado sobre um raio muito maior (4 células). É isso que cria o halo instantâneo em
-volta do reator no momento do acidente, e é a razão de a regra declarar `raioAmplo`.
-A varredura ampla só acontece enquanto a usina emite; nas outras fases o custo é uma
-comparação.
+O vento faz o vizinho do lado de onde ele vem pesar 2x e o do lado oposto 0,5x. É nomeado
+pela direção de onde sopra: vento norte empurra a contaminação para o sul.
 
-O vento faz o vizinho do lado de onde ele vem pesar 2x e o do lado oposto 0,5x:
-
-| Vento | Peso 2× | Peso 0,5× |
-| --- | --- | --- |
-| nenhum | — | — |
-| norte | vizinhos acima (`dy < 0`) | abaixo |
-| sul | abaixo | acima |
-| leste | à direita | à esquerda |
-| oeste | à esquerda | à direita |
-
-#### Tabela de transições
+### Tabela de transições
 
 | Estado atual | Condição | Próximo estado |
 | --- | --- | --- |
-| **Usina** | sempre | Usina |
-| **Solo / contaminado** (0–3) | vazamento em curso e pressão ≥ nível + `limiarSubida`, nível < 3 | nível **+1** |
+| **Usina** (4) | sempre | Usina |
+| **Solo / contaminado** (0–3) | vazamento em curso **e** pressão ≥ nível + `limiarSubida` **e** nível < 3 | nível **+1** |
 | | pressão ≤ nível − `limiarDescida` | nível **−1** (mín. 0) |
-| | senão | nível **−1** com prob. `probDecaimento` |
+| | nos demais casos | nível **−1** com prob. `probDecaimento` |
 | **Solo** (0) | reator contido, continuou em 0, nenhum vizinho contaminado, sorteio com p = `probBrotar` × nº vizinhos com vegetação | Grama |
-| **Vegetação** (6–8) | pressão ≥ limiar letal da fase | Contaminado leve |
-| Grama | senão, prob. `probCrescer1` | Arbusto |
-| Arbusto | senão, prob. `probCrescer2` | Árvore |
-| **Concreto** | cidade evacuada, ≥ `vizinhosParaRachar` vizinhos arbusto/árvore, prob. `probRachar` | Grama |
-| | senão | Concreto (nunca recebe contaminação) |
+| **Vegetação** (6–8) | pressão ≥ limiar letal da fase | Contaminação leve |
+| Grama (6) | senão, prob. `probCrescer1` | Arbusto |
+| Arbusto (7) | senão, prob. `probCrescer2` | Árvore |
+| Árvore (8) | senão | Árvore |
+| **Concreto** (5) | cidade evacuada **e** ≥ `vizinhosParaRachar` vizinhos arbusto/árvore **e** prob. `probRachar` | Grama |
+| | nos demais casos | Concreto (nunca recebe contaminação) |
 
-#### Quatro decisões de modelagem, e por que cada uma existe
+Cada estado cai em exatamente um bloco, então não existe ordem de prioridade escondida
+entre as regras.
 
-**1. A contaminação só avança enquanto a usina vaza.**
+### Parâmetros
 
-A regra na forma "sobe se a média dos vizinhos passa de um limiar" **não se recupera
-nunca**, e isso não é questão de calibrar melhor — é geometria. O interior de uma
-mancha sempre enxerga mais contaminação (média 3, todos os vizinhos no máximo) do que
-a frente de avanço (média 1,125, só três vizinhos contaminados). Ou seja, *"um nível é
-alcançável"* e *"um nível se auto-sustenta"* são exatamente a mesma condição: tudo o
-que a mancha conquista, ela também mantém para sempre. Foi verificado com o script de
-calibração, tanto com limiar absoluto quanto com limiar relativo.
-
-A leitura física é direta: o solo contaminado é um **reservatório**, não uma fonte.
-Ele empurra contaminação para os lados enquanto há material novo chegando do reator;
-fechado o sarcófago, o que restou apenas decai no lugar.
-
-**2. Os limiares são relativos ao nível da própria célula.**
-
-A comparação é `pressão ≥ nível + limiarSubida`, e não contra um valor absoluto. A
-leitura vira *"a vizinhança está mais contaminada do que eu?"*, e é isso que dá
-GRADIENTE à mancha: na frente de avanço a pressão mal dá para o nível 1; algumas
-células atrás dá para o 2; e só no miolo, cercado de nível 3, dá para o 3. Com limiar
-absoluto, qualquer célula tocada pela mancha subia direto ao máximo e a pluma virava
-um polígono de cor única.
-
-**3. O limiar que mata a vegetação depende da fase.**
-
-Durante o vazamento é baixo (0,08): com o reator exposto, o que mata as plantas é a
-precipitação radioativa caindo do ar. Depois do sarcófago é alto (0,8): sobra apenas o
-resíduo no solo.
-
-Sem essa diferença o cenário não termina. Com um limiar único e baixo, cada planta
-morta vira contaminação nova que mata a planta seguinte — uma onda que se alimenta
-sozinha e continua devorando a floresta muito depois do sarcófago. Na calibração isso
-aparece como um pico de contaminação 90 gerações *depois* de o reator ser contido.
-
-**4. A natureza só recoloniza terreno novo depois do sarcófago.**
-
-Na operação normal a paisagem é mantida — ruas varridas, clareiras abertas, quintais
-aparados; a fase é, de propósito, o retrato do "antes". Durante o vazamento, a
-precipitação mata qualquer broto. Sem essa condição, cem gerações de operação normal
-levam a vegetação de 63 % para 95 % do mapa e o acidente acontece sobre uma cidade já
-engolida pelo mato.
-
-#### Parâmetros
-
-Todos ficam em um objeto só (`ParametrosCenario`), compartilhado com a interface:
-mexer em um controle vale já na geração seguinte, sem reconstruir a regra.
-
-| Parâmetro | Padrão | O que faz |
+| Parâmetro | Padrão | O que controla |
 | --- | --- | --- |
 | `emissaoUsina` | 3 | intensidade da fonte durante o vazamento |
-| `limiarSubida` | 0,12 | quanto a pressão precisa superar o próprio nível para subir |
-| `limiarDescida` | 0,95 | quanto precisa ficar abaixo do próprio nível para descer |
-| `probDecaimento` | 0,015 | decaimento radioativo; limpa o miolo da mancha |
-| `limiarMorte` | 0,08 | mata a vegetação durante o vazamento (precipitação) |
-| `limiarMorteResidual` | 0,80 | mata a vegetação depois do sarcófago (só resíduo) |
 | `absorcao` | 0,01 | desconto na pressão por vizinho arbusto/árvore |
-| `probBrotar` | 0,05 | por vizinho com vegetação |
-| `probCrescer1` / `probCrescer2` | 0,006 / 0,003 | grama → arbusto → árvore |
+| `pesoVentoForte` | 2 | peso do vizinho a favor do vento |
+| `pesoVentoFraco` | 0,5 | peso do vizinho contra o vento |
+| `limiarSubida` | 0,12 | excesso de pressão sobre o próprio nível para subir |
+| `limiarDescida` | 0,95 | déficit de pressão sob o próprio nível para descer |
+| `probDecaimento` | 0,015 | decaimento radioativo por geração |
+| `limiarMorte` | 0,08 | pressão letal durante o vazamento |
+| `limiarMorteResidual` | 0,80 | pressão letal depois do sarcófago |
+| `probBrotar` | 0,05 | brotar grama, por vizinho com vegetação |
+| `probCrescer1` | 0,006 | grama → arbusto |
+| `probCrescer2` | 0,003 | arbusto → árvore |
 | `vizinhosParaRachar` | 2 | o K da regra do concreto |
-| `probRachar` | 0,012 | velocidade com que a mata racha as construções |
-| `pesoVentoForte` / `pesoVentoFraco` | 2 / 0,5 | pesos do vento |
+| `probRachar` | 0,012 | velocidade da rachadura |
 | `RAIO_DA_USINA` | 4 | alcance do reator exposto, em células |
+
+### Quatro decisões de modelagem
+
+Cada uma resolve um problema que apareceu nas medições — não na intuição.
+
+**1. A contaminação só avança enquanto a usina vaza.** A regra na forma "sobe se a média
+dos vizinhos passa de um limiar" nunca se recupera, e o motivo é geométrico: o interior de
+uma mancha sempre enxerga mais contaminação (média 3) que a frente de avanço (média
+1,125). Logo *"um nível é alcançável"* e *"um nível se auto-sustenta"* são a mesma
+condição — tudo o que a mancha conquista, ela mantém para sempre. Nenhum valor de limiar
+escapa disso. A leitura física: o solo contaminado é um **reservatório**, não uma fonte.
+
+**2. Os limiares são relativos ao nível da própria célula.** A pergunta vira *"a
+vizinhança está mais contaminada do que eu?"*, e é isso que dá **gradiente** à mancha —
+nível 1 na frente, 2 atrás, 3 no miolo. Com limiar absoluto, toda célula tocada subia
+direto ao máximo e a pluma virava um polígono de cor única.
+
+**3. O limiar que mata a vegetação depende da fase.** Durante o vazamento é a precipitação
+radioativa caindo do ar; depois, só o resíduo no solo. Com um limiar único e baixo, cada
+planta morta vira contaminação que mata a seguinte — uma onda que se alimenta sozinha e
+devora a floresta muito depois do sarcófago.
+
+**4. A natureza só recoloniza depois do sarcófago.** Antes, a paisagem é mantida; durante
+o vazamento, a precipitação mata os brotos. Sem isso, cem gerações de operação normal
+levam a vegetação de 63 % para 95 % do mapa e o acidente acontece sobre uma cidade já
+engolida pelo mato.
 
 ---
 
 ## O mapa, gerado por outro autômato celular
 
-O mapa inteiro sai da semente, e a ferramenta é uma **regra de maioria** — cada célula
-passa a valer o que a maioria da sua vizinhança de Moore já vale. Repetida poucas
-vezes sobre ruído puro, ela apaga os pixels soltos e faz emergirem manchas de contorno
-orgânico. Vale registrar a simetria: **usamos um autômato celular para gerar o terreno
-do nosso autômato celular**.
+O mapa inteiro sai da semente, e a ferramenta é uma **regra de maioria**: cada célula
+passa a valer o que a maioria da sua vizinhança de Moore já vale. Repetida poucas vezes
+sobre ruído puro, ela apaga os pixels soltos e faz emergirem manchas de contorno orgânico.
+Vale registrar a simetria: **usamos um autômato celular para gerar o terreno do nosso
+autômato celular**.
 
-- **Floresta:** três máscaras independentes, cada uma suavizada e sobreposta como
-  camada — uma decide onde há mata e onde ficam as clareiras, outra onde a mata passa
-  de grama a arbusto, a terceira onde o arbusto vira árvore. Sortear o tipo célula a
-  célula produziria os três verdes misturados pixel a pixel, que é justamente o
-  chuvisco que a suavização existe para evitar. Por cima, a densidade local decide a
-  ORLA: onde a mata é rala, só nasce grama.
-- **Cidade:** a mesma suavização, agora sobre um ruído *enviesado pela distância* de um
-  centro sorteado. Perto do centro quase todo mundo é cidade, longe quase ninguém, e a
-  maioria transforma essa nuvem de probabilidade em uma mancha fechada e irregular —
-  um retângulo perfeito denunciaria o gerador.
-- **Dentro da cidade:** malha de ruas, quarteirões com casas de 2x2 a 3x3 separadas por
-  quintais de grama, e prédios maiores no miolo. A usina de 5x5 ocupa o quarteirão
-  mais periférico, de modo que o vazamento pegue a cidade de um lado e a floresta do
-  outro.
+- **Floresta:** três máscaras suavizadas e sobrepostas — onde há mata, onde ela é lenhosa,
+  onde vira árvore. Sortear o tipo célula a célula produziria os três verdes misturados
+  pixel a pixel, o chuvisco que a suavização existe para evitar.
+- **Cidade:** a mesma suavização sobre ruído *enviesado pela distância* de um centro
+  sorteado, o que transforma uma nuvem de probabilidade em uma mancha fechada e irregular
+  — um retângulo perfeito denunciaria o gerador.
+- **Dentro dela:** malha de ruas, quarteirões com casas de 2x2 a 3x3 separadas por
+  quintais de grama, prédios maiores no miolo, e a usina de 5x5 no quarteirão mais
+  periférico.
 
-**As ruas são asfalto sobre terra**, então o estado delas é `SOLO` e não `CONCRETO`. A
-diferença é decisiva: o concreto é impermeável pela regra 5, e uma cidade toda de
-concreto seria uma ilha imune no meio da contaminação, com os quintais lacrados por
-todos os lados. Com a malha viária permeável, a contaminação entra na cidade pelas
-ruas — que é exatamente por onde ela entraria. O cinza do asfalto vem da camada de
-uso, não do estado.
-
----
-
-## Visual
-
-- **Variação de tom estável por célula.** Cada célula recebe um pequeno desvio de tom
-  a partir de um hash de (x, y). Depender só das coordenadas é o ponto: se viesse de
-  `Math.random()` o mapa cintilaria a cada geração, e se dependesse do estado uma
-  célula mudaria de tom ao ser contaminada, confundindo a leitura da mancha.
-  A amplitude é discreta de propósito — exagerada, um tom claro de árvore fica parecido
-  com um tom escuro de grama e as manchas de vegetação se desmancham em chuvisco.
-- **Contaminação** vai de oliva fosco a chartreuse, subindo em saturação e brilho. A
-  progressão é de intensidade, não de matiz, o que a torna legível em células de
-  poucos pixels.
-- **Vegetação** usa três verdes mais escuros e menos amarelados que a contaminação,
-  para que mata viva e solo envenenado nunca se confundam.
-- **Concreto** se desdobra em rua (cinza escuro), três telhados terrosos e prédio
-  (cinza claro), conforme a camada de uso.
-- **A usina é o único tom frio da paleta.** Cercada de verdes, cinzas e marrons, ela
-  não tem como se perder de vista — e é a origem de tudo o que acontece.
-
----
-
-## Interface
-
-Todo o painel é montado a partir de listas declarativas, e não escrito à mão no HTML.
-São catorze parâmetros e nove estados: escrever catorze blocos quase idênticos convida
-a erros de copiar e colar — um `id` repetido, um rótulo que não corresponde ao campo —
-que só aparecem quando alguém arrasta o controle errado. Com a lista, acrescentar um
-parâmetro é acrescentar uma linha, e o TypeScript confere se a chave existe mesmo.
-
-- **Parâmetros ao vivo.** Os catorze limiares e probabilidades têm controle próprio,
-  cada um com a faixa em que ainda produz um cenário reconhecível. Como escrevem
-  direto no objeto compartilhado com a regra, dá para arrastar um controle com a
-  simulação rodando e ver o efeito na geração seguinte.
-- **Pincel por estado.** As amostras são geradas da lista de estados da engine, com as
-  cores reais do mapa; um estado novo apareceria sozinho, com a cor certa. A seleção é
-  marcada por contorno, não só por cor, e cada amostra carrega o nome no rótulo
-  acessível.
-- **Gráfico das três séries**, com linhas tracejadas nas gerações em que o acidente e o
-  sarcófago foram acionados — sem elas, as curvas mostram o que aconteceu mas não
-  quando alguém interveio. Passar o ponteiro sobre o gráfico lê os três valores de
-  qualquer geração.
-- **Exportação.** CSV com uma linha por geração (contagens brutas e percentuais) e PNG
-  da grade ampliado 4x. O nome dos arquivos guarda a semente e a geração, para o
-  experimento poder ser refeito exatamente igual.
-
-### Por que o gráfico não usa as cores do mapa
-
-Seria o esperado, e foi a primeira tentativa. Mas as cores do mapa foram escolhidas
-para células de poucos pixels sobre fundo escuro, e em traços de 2 px elas falham em
-dois pontos que dá para medir: o cinza do concreto tem croma baixo demais e passa a ler
-como linha de grade, e os dois verdes ficam a uma distância perceptual pequena demais
-um do outro — inclusive para quem enxerga todas as cores.
-
-A paleta do gráfico (`#86a02b`, `#0d7d5d`, `#7a8fd4`) mantém a associação — a
-contaminação continua amarelo-esverdeada, a vegetação verde, o concreto frio como
-construção — e passa nos seis testes de banda de luminosidade, croma, separação sob
-daltonismo, separação sob visão normal e contraste contra o fundo escuro do painel.
-De todo modo, a identidade nunca depende só da cor: a legenda está sempre presente e
-traz o valor de cada série em número.
+**As ruas são asfalto sobre terra**, com estado `SOLO` e não `CONCRETO`. O concreto é
+impermeável pela regra 5, e uma cidade toda de concreto seria uma ilha imune no meio da
+contaminação, com os quintais lacrados por todos os lados. Com a malha viária permeável, a
+contaminação entra na cidade pelas ruas — que é exatamente por onde ela entraria.
 
 ---
 
@@ -388,32 +333,25 @@ npm run calibrar -- geracoes=800 acidente=50 sarcofago=120 vento=norte
 npm run calibrar -- limiarMorte=0.2 probDecaimento=0.03
 ```
 
-Roda a simulação **sem interface** e imprime os indicadores a cada N gerações.
-Qualquer parâmetro pode ser sobrescrito na linha de comando, o que permite comparar
-cenários sem editar código. Foi com ele que todos os valores acima foram escolhidos.
+Roda a simulação **sem interface** e imprime os indicadores a cada N gerações. Qualquer
+parâmetro pode ser sobrescrito na linha de comando. Resultado com os padrões (200x125,
+semente `retomada`, acidente na geração 100 e sarcófago na 160):
 
-Resultado com os padrões (200x125, semente `retomada`, acidente na geração 100 e
-sarcófago na 160):
+| Geração | Contaminado | Vegetação | Concreto |
+| --- | --- | --- | --- |
+| 0 | 0,0 % | 63,4 % | 4,5 % |
+| 100 — *acidente* | 0,5 % | 63,3 % | 4,5 % |
+| 120 | 8,8 % | 59,6 % | 4,3 % |
+| 160 — *sarcófago* | 48,0 % | 37,0 % | 4,1 % |
+| 200 | 41,4 % | 47,3 % | 4,1 % |
+| 240 | 32,3 % | 47,7 % | 4,1 % |
+| 280 | 19,8 % | 49,2 % | 4,1 % |
+| 320 | 9,8 % | 52,1 % | 4,1 % |
+| 400 | 1,5 % | 63,9 % | 4,0 % |
+| 480 | 0,2 % | 80,9 % | 3,5 % |
 
-| Geração | Contaminado | Vegetação | Concreto | Grave |
-| --- | --- | --- | --- | --- |
-| 0 | 0,0 % | 63,4 % | 4,5 % | 0,0 % |
-| 80 | 0,0 % | 63,4 % | 4,5 % | 0,0 % |
-| 100 — *acidente* | 0,5 % | 63,3 % | 4,5 % | 0,0 % |
-| 120 | 8,8 % | 59,6 % | 4,3 % | 4,8 % |
-| 160 — *sarcófago* | 48,0 % | 37,0 % | 4,1 % | 32,3 % |
-| 200 | 41,4 % | 47,3 % | 4,1 % | 13,0 % |
-| 240 | 32,3 % | 47,7 % | 4,1 % | 0,3 % |
-| 280 | 19,8 % | 49,2 % | 4,1 % | 0,0 % |
-| 320 | 9,8 % | 52,1 % | 4,1 % | 0,0 % |
-| 360 | 4,2 % | 57,2 % | 4,0 % | 0,0 % |
-| 400 | 1,5 % | 63,9 % | 4,0 % | 0,0 % |
-| 440 | 0,6 % | 72,4 % | 3,8 % | 0,0 % |
-| 480 | 0,2 % | 80,9 % | 3,5 % | 0,0 % |
-
-Os dois alvos ficam atendidos: o vazamento cobre quase metade do mapa, cidade e
-floresta próxima incluídas, e 90 % da contaminação some **194 gerações** depois do
-sarcófago.
+O vazamento cobre quase metade do mapa e 90 % da contaminação some **194 gerações** depois
+do sarcófago.
 
 ---
 
@@ -423,33 +361,37 @@ sarcófago.
 npm test
 ```
 
-A suíte cobre apenas a engine, e cada arquivo tem um propósito declarado:
-
 | Arquivo | O que verifica |
 | --- | --- |
 | `contorno.test.ts` | O vizinho à esquerda da coluna 0 é a última coluna (periódico); fora da grade devolve `FORA_DA_GRADE` (fixo). |
 | `vizinhanca.test.ts` | Von Neumann raio 1 tem 4 vizinhos e Moore raio 1 tem 8 (e 12/24 no raio 2); leitura correta nas bordas com cada contorno. |
 | `jogoDaVida.test.ts` | O planador se desloca 1 célula na diagonal a cada 4 gerações, atravessa a borda e volta ao ponto de partida; bloco estável; pisca-pisca com período 2. |
-| `reprodutibilidade.test.ts` | A mesma semente gera exatamente a mesma simulação, inclusive com regra probabilística; `reiniciar` recria o gerador. |
-| `csv.test.ts` | O CSV tem uma linha por geração, as contagens somam o total de células, os percentuais batem com as contagens e saem com vírgula decimal. |
-| `cenarioAcidente.test.ts` | Cada uma das cinco regras isoladamente; o alcance ampliado da usina e o seu limite; a média ponderada equivalente em Von Neumann e Moore; o vento; a absorção; o concreto que só racha depois da evacuação; a contaminação que nunca aumenta sem fonte; o ciclo completo das três fases; e a geração procedural do mapa. |
+| `reprodutibilidade.test.ts` | A mesma semente gera exatamente a mesma simulação, inclusive com regra probabilística. |
+| `csv.test.ts` | O CSV tem uma linha por geração, as contagens somam o total de células e os percentuais batem com elas. |
+| `cenarioAcidente.test.ts` | Cada uma das cinco regras isoladamente; o alcance ampliado da usina e o seu limite; a média equivalente em Von Neumann e Moore; o vento; a absorção; o concreto que só racha depois da evacuação; a contaminação que nunca aumenta sem fonte; o ciclo completo das três fases; e a geração procedural do mapa. |
 | `arquitetura.test.ts` | Nenhum arquivo da engine referencia o navegador ou importa de fora do diretório. |
 
 ---
 
-## Cronograma
+## Documentação complementar
 
-- [x] **Etapa 1 — engine.** Estados, gerador com semente, vizinhanças, contornos,
-      simulação com double buffering, Jogo da Vida e a suíte de testes.
-- [x] **Etapa 2 — renderização e passo a passo.** Canvas via `ImageData`, laço de
-      animação, play/pause, próxima geração, velocidade, contador, mapas iniciais,
-      pincel básico e tema escuro responsivo.
-- [x] **Etapa 3 — cenário do acidente nuclear.** Fases, pressão com fonte de longo
-      alcance, vento, absorção, mapa procedural com floresta e cidade, camada de uso
-      do solo, paleta com variação de tom e o script de calibração.
-- [x] **Etapa 4 — interface completa.** Os catorze parâmetros do cenário editáveis ao
-      vivo, pincel com seleção de estado, gráfico das três séries com as marcações de
-      fase, e exportação em CSV e PNG.
+- **[docs/regras.md](docs/regras.md)** — definição formal do autômato, tabelas de estados e
+  transições e a lista completa de parâmetros, em formato pronto para colar no relatório.
+- **[docs/experimentos.md](docs/experimentos.md)** — roteiro de comparações (Moore x Von
+  Neumann, raio 1 x 2, contorno fixo x periódico, com e sem vento), com o que observar em
+  cada uma.
+
+---
+
+## Sobre o trabalho
+
+Este projeto foi desenvolvido no contexto de um **trabalho acadêmico em grupo**, de
+disciplina de graduação, sobre autômatos celulares. **O código deste repositório é de
+autoria de Gustavo Barbosa Lima** — engine, renderização, interface, testes e documentação.
+
+## Licença
+
+[MIT](LICENSE) © Gustavo Barbosa Lima
 
 ---
 

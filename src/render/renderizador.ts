@@ -159,6 +159,40 @@ export class Renderizador {
   }
 
   /**
+   * Desenha um RECORTE da grade, ampliado, em outro canvas.
+   *
+   * A fonte é o canvas auxiliar — o que tem exatamente uma célula por pixel —,
+   * então o resultado não depende do tamanho da janela nem do zoom. Serve para
+   * montar imagens de tamanho fixo, como a de compartilhamento.
+   *
+   * Exige que `desenhar` já tenha rodado ao menos uma vez: é ele quem preenche o
+   * canvas auxiliar.
+   */
+  recortarPara(
+    destino: HTMLCanvasElement,
+    x: number,
+    y: number,
+    largura: number,
+    altura: number,
+  ): void {
+    const contexto = destino.getContext('2d');
+    if (contexto === null) throw new Error('Não foi possível obter o contexto do recorte.');
+
+    contexto.imageSmoothingEnabled = false;
+    contexto.drawImage(
+      this.canvasAuxiliar,
+      x,
+      y,
+      largura,
+      altura,
+      0,
+      0,
+      destino.width,
+      destino.height,
+    );
+  }
+
+  /**
    * Exporta a grade como PNG, ampliada por um fator inteiro.
    *
    * Não exporta o canvas da tela, e sim o canvas auxiliar — aquele que tem
